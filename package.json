@@ -2,7 +2,7 @@
   "name": "offline-telemedicine-pwa",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://Harinim-h.github.io/offline-telemedicine-pwa",
+  "homepage": "https://harinim-h.github.io/offline-telemedicine-pwa",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -10,7 +10,6 @@
     "@testing-library/user-event": "^13.5.0",
     "cra-template-pwa": "^2.0.0",
     "firebase": "^12.8.0",
-    "gh-pages": "^6.3.0",
     "idb": "^8.0.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -42,5 +41,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
   }
 }
