@@ -1,8 +1,13 @@
+import React from "react";
+import PatientForm from "./components/PatientForm";
+import PatientList from "./components/PatientList";
+
 function App() {
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Offline Telemedicine App</h1>
-      <p>Welcome to the offline-first healthcare web application.</p>
+    <div>
+      <h1 style={{ textAlign: "center" }}>Offline Telemedicine App</h1>
+      <PatientForm />
+      <PatientList />
     </div>
   );
 }
