@@ -1,9 +1,8 @@
-// src/components/PatientForm.js
 import React, { useState } from "react";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/firebaseConfig";
 
-function PatientForm() {
+function PatientForm({ onClose }) {
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [condition, setCondition] = useState("");
@@ -22,48 +21,74 @@ function PatientForm() {
         name,
         age,
         condition,
-        createdAt: new Date()
+        createdAt: serverTimestamp()
       });
+
       setMessage("Patient added successfully ✅");
       setName("");
       setAge("");
       setCondition("");
+
+      setTimeout(() => {
+        onClose();
+      }, 800);
     } catch (err) {
-      console.error("Firestore error", err);
+      console.error(err);
       setMessage("Error adding patient ❌");
     }
   };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "400px", margin: "auto" }}>
+    <div>
       <h2>Add Patient</h2>
+
       <form onSubmit={handleSubmit}>
         <input
-          type="text"
-          placeholder="Name"
+          placeholder="Patient Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          style={{ display: "block", marginBottom: "10px", width: "100%" }}
+          style={input}
         />
+
         <input
           type="number"
           placeholder="Age"
           value={age}
           onChange={(e) => setAge(e.target.value)}
-          style={{ display: "block", marginBottom: "10px", width: "100%" }}
+          style={input}
         />
+
         <input
-          type="text"
-          placeholder="Condition"
+          placeholder="Medical Condition"
           value={condition}
           onChange={(e) => setCondition(e.target.value)}
-          style={{ display: "block", marginBottom: "10px", width: "100%" }}
+          style={input}
         />
-        <button type="submit" style={{ width: "100%" }}>Add Patient</button>
+
+        <button type="submit" style={btn}>Save Patient</button>
       </form>
+
       {message && <p>{message}</p>}
     </div>
   );
 }
+
+const input = {
+  width: "100%",
+  padding: 10,
+  marginBottom: 12,
+  borderRadius: 8,
+  border: "1px solid #ccc"
+};
+
+const btn = {
+  width: "100%",
+  padding: 12,
+  borderRadius: 10,
+  border: "none",
+  background: "#203a43",
+  color: "#fff",
+  cursor: "pointer"
+};
 
 export default PatientForm;

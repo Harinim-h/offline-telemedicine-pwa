@@ -1,12 +1,11 @@
-import PatientForm from "../components/PatientForm";
-import PatientList from "../components/PatientList";
+import AppointmentForm from "../components/AppointmentForm";
+import AppointmentList from "../components/AppointmentList";
 
 export default function PatientDashboard() {
   return (
-    <div style={{ paddingBottom: "70px" }}>
-      <h2>Patient Dashboard</h2>
-      <PatientForm />
-      <PatientList />
-    </div>
+    <>
+      <AppointmentForm />
+      <AppointmentList />
+    </>
   );
 }

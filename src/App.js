@@ -1,30 +1,33 @@
-import React from "react";
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-
-import LanguageSelect from "./pages/LanguageSelect";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Navbar from "./components/Navbar";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
-import Navbar from "./components/Navbar";
+import AddPatient from "./pages/AddPatient";
+import DoctorPatients from "./pages/DoctorPatients";
+import PatientHome from "./homepages/PatientHome";
+import DoctorHome from "./homepages/DoctorHome";
+import AdminHome from "./homepages/AdminHome";
 
 function App() {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <Navbar />
 
       <Routes>
-        {/* FIRST PAGE ALWAYS */}
-        <Route path="/" element={<LanguageSelect />} />
-
-        {/* LOGIN AFTER LANGUAGE */}
+        <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
 
-        {/* DASHBOARD */}
         <Route path="/home" element={<Home />} />
 
-        {/* CATCH ALL: redirect unknown paths to / */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+<Route path="/doctor/add-patient" element={<AddPatient />} />
+<Route path="/doctor/patients" element={<DoctorPatients />} />
+        <Route path="/patient-home" element={<PatientHome />} />
+        <Route path="/doctor-home" element={<DoctorHome />} />
+        <Route path="/admin-home" element={<AdminHome />} />
+
+        <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
-    </HashRouter>
+    </BrowserRouter>
   );
 }
 

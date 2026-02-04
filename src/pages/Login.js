@@ -9,18 +9,12 @@ export default function Login() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  // -----------------------------
-  // State
-  // -----------------------------
-
   const [role, setRole] = useState("");
   const [formData, setFormData] = useState({});
-  const [isNewUser, setIsNewUser] = useState(true); // signup vs login
+  const [isNewUser, setIsNewUser] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // -----------------------------
-  // Role-specific fields
-  // -----------------------------
+  /* ---------------- ROLE FIELDS ---------------- */
   const roleFields = {
     patient: [
       { label: t("name"), name: "name", type: "text" },
@@ -28,9 +22,7 @@ export default function Login() {
       { label: t("mobile"), name: "mobile", type: "tel" }
     ],
     doctor: [
-      { label: t("name"), name: "name", type: "text" },
       { label: t("email"), name: "email", type: "email" },
-      { label: t("phone"), name: "phone", type: "tel" },
       { label: t("password"), name: "password", type: "password" }
     ],
     admin: [
@@ -39,106 +31,103 @@ export default function Login() {
     ]
   };
 
-  // -----------------------------
-  // Effects
-  // -----------------------------
+  /* ---------------- HANDLERS ---------------- */
+  const handleLanguage = (lang) => {
+    i18n.changeLanguage(lang);
+    localStorage.setItem("language", lang);
+  };
 
-
-  // -----------------------------
-  // Handlers
-  // -----------------------------
- const handleLanguage = (lang) => {
-  i18n.changeLanguage(lang);     // 🔥 this alone triggers re-render
-  localStorage.setItem("language", lang);
-};
-
-
-  const handleRole = (selectedRole) => {
-    setRole(selectedRole);
+  const handleRole = (r) => {
+    setRole(r);
     setFormData({});
-    setIsNewUser(selectedRole !== "admin"); // admin → login only
+    setIsNewUser(r === "patient"); // ✅ only patient can register
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
+  const handleChange = (e) =>
+    setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // -----------------------------
-  // REGISTER & LOGIN (Firebase)
-  // -----------------------------
+  /* ---------------- SUBMIT ---------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // 🔑 Unique ID per role
-      const userId =
-        role === "patient"
-          ? formData.mobile
-          : formData.email;
-
-      if (!userId) {
-        alert("Missing required credentials");
+      /* ===== DOCTOR DIRECT LOGIN ===== */
+      if (role === "doctor") {
+        if (
+          formData.email === "doctor@gmail.com" &&
+          formData.password === "doctor@123"
+        ) {
+          sessionStorage.setItem("role", "doctor");
+          sessionStorage.setItem(
+            "userData",
+            JSON.stringify({ role: "doctor", email: "doctor@gmail.com" })
+          );
+          navigate("/doctor-home");
+        } else {
+          alert("Invalid Doctor Credentials");
+        }
         setLoading(false);
         return;
       }
 
-      const userRef = doc(db, "users", `${role}_${userId}`);
+      /* ===== ADMIN DIRECT LOGIN ===== */
+      if (role === "admin") {
+        if (
+          formData.email === "admin@gmail.com" &&
+          formData.password === "admin@123"
+        ) {
+          sessionStorage.setItem("role", "admin");
+          sessionStorage.setItem(
+            "userData",
+            JSON.stringify({ role: "admin", email: "admin@gmail.com" })
+          );
+          navigate("/admin-home");
+        } else {
+          alert("Invalid Admin Credentials");
+        }
+        setLoading(false);
+        return;
+      }
+
+      /* ===== PATIENT REGISTER / LOGIN ===== */
+      const userId = formData.mobile;
+      if (!userId) {
+        alert("Mobile number required");
+        setLoading(false);
+        return;
+      }
+
+      const userRef = doc(db, "users", `patient_${userId}`);
       const snap = await getDoc(userRef);
 
-      // -----------------------------
-      // SIGN UP
-      // -----------------------------
+      // REGISTER
       if (isNewUser) {
-        if (role === "admin") {
-          alert("Admin registration is not allowed");
-          setLoading(false);
-          return;
-        }
-
         if (snap.exists()) {
-          alert("User already registered. Please login.");
+          alert("User already exists. Please login.");
           setIsNewUser(false);
           setLoading(false);
           return;
         }
 
-        await setDoc(userRef, {
-          ...formData,
-          role
-        });
-
+        await setDoc(userRef, { ...formData, role: "patient" });
         alert(t("registered_success"));
         setIsNewUser(false);
         setFormData({});
         setLoading(false);
-        return; // ❌ NO REDIRECT
+        return;
       }
 
-      // -----------------------------
       // LOGIN
-      // -----------------------------
       if (!snap.exists()) {
         alert(t("invalid_credentials"));
         setLoading(false);
         return;
       }
 
-      const dbUser = snap.data();
-
-      if (
-        (dbUser.password && dbUser.password !== formData.password) ||
-        dbUser.role !== role
-      ) {
-        alert(t("invalid_credentials"));
-        setLoading(false);
-        return;
-      }
-
-      sessionStorage.setItem("role", role);
-      sessionStorage.setItem("userData", JSON.stringify(dbUser));
-      navigate("/home");
+      sessionStorage.setItem("role", "patient");
+      sessionStorage.setItem("userData", JSON.stringify(snap.data()));
+      navigate("/patient-home");
     } catch (err) {
       console.error(err);
       alert("Something went wrong");
@@ -147,22 +136,21 @@ export default function Login() {
     setLoading(false);
   };
 
-  // -----------------------------
-  // UI
-  // -----------------------------
+  /* ---------------- UI ---------------- */
   return (
     <div style={container}>
-      {/* Language */}
       <div style={{ textAlign: "center" }}>
-  <h2>{t("welcome")}</h2>
-  <button onClick={() => handleLanguage("en")} style={langBtn}>English</button>
-  <button onClick={() => handleLanguage("ta")} style={langBtn}>தமிழ்</button>
-  <button onClick={() => handleLanguage("hi")} style={langBtn}>हिन्दी</button>
-</div>
+        <h2 style={{ color: "#0f2027" }}>{t("welcome")}</h2>
 
-      {/* Role */}
+        <div style={langWrap}>
+          <button onClick={() => handleLanguage("en")} style={langBtn}>English</button>
+          <button onClick={() => handleLanguage("ta")} style={langBtn}>தமிழ்</button>
+          <button onClick={() => handleLanguage("hi")} style={langBtn}>हिन्दी</button>
+        </div>
+      </div>
+
       <div style={{ textAlign: "center", marginTop: 20 }}>
-        <h3>{t("select_role")}</h3>
+        <h3 style={{ color: "#203a43" }}>{t("select_role")}</h3>
         {["patient", "doctor", "admin"].map((r) => (
           <button key={r} onClick={() => handleRole(r)} style={roleBtn}>
             {t(r)}
@@ -170,18 +158,16 @@ export default function Login() {
         ))}
       </div>
 
-      {/* Form */}
       {role && (
         <form onSubmit={handleSubmit} style={{ marginTop: 20 }}>
-          <h3 style={{ textAlign: "center" }}>
+          <h3 style={{ textAlign: "center", color: "#203a43" }}>
             {isNewUser ? t("register") : t("login")}
           </h3>
 
           {roleFields[role].map((f) => (
             <input
               key={f.name}
-              type={f.type}
-              name={f.name}
+              {...f}
               placeholder={f.label}
               value={formData[f.name] || ""}
               onChange={handleChange}
@@ -194,9 +180,14 @@ export default function Login() {
             {loading ? "Please wait..." : isNewUser ? t("register") : t("login")}
           </button>
 
-          {role !== "admin" && (
+          {/* ✅ TOGGLE ONLY FOR PATIENT */}
+          {role === "patient" && (
             <p style={{ textAlign: "center" }}>
-              <button type="button" onClick={() => setIsNewUser(!isNewUser)} style={toggleBtn}>
+              <button
+                type="button"
+                onClick={() => setIsNewUser(!isNewUser)}
+                style={toggleBtn}
+              >
                 {isNewUser ? t("already_account") : t("new_user")}
               </button>
             </p>
@@ -207,48 +198,54 @@ export default function Login() {
   );
 }
 
-/* 🎨 Styles */
+/* ---------------- THEME ---------------- */
 const container = {
-  maxWidth: 500,
+  maxWidth: 480,
   margin: "40px auto",
-  padding: 20,
-  borderRadius: 10,
-  background: "#faf5ff",
-  boxShadow: "0 4px 10px rgba(0,0,0,0.15)"
+  padding: 24,
+  borderRadius: 12,
+  background: "#e0f7fa",
+  boxShadow: "0 8px 24px rgba(15,32,39,0.35)"
 };
 
+const langWrap = { display: "flex", justifyContent: "center", gap: 10, marginTop: 10 };
+
 const langBtn = {
-  margin: 5,
   padding: "8px 16px",
+  borderRadius: 20,
+  border: "1px solid #2c5364",
+  background: "#ffffff",
+  color: "#203a43",
+  fontWeight: "600",
   cursor: "pointer"
 };
 
 const roleBtn = {
-  margin: 5,
-  padding: "10px 20px",
-  background: "#6a1b9a",
-  color: "white",
+  margin: 6,
+  padding: "10px 22px",
+  background: "#2c5364",
+  color: "#ffffff",
   border: "none",
-  borderRadius: 5,
+  borderRadius: 20,
   cursor: "pointer"
 };
 
 const input = {
   width: "100%",
-  padding: 10,
+  padding: 12,
   marginTop: 10,
-  borderRadius: 5,
-  border: "1px solid #ccc"
+  borderRadius: 8,
+  border: "1px solid #b0bec5"
 };
 
 const submitBtn = {
   width: "100%",
-  marginTop: 15,
+  marginTop: 16,
   padding: 12,
-  background: "#4a148c",
-  color: "white",
+  background: "#203a43",
+  color: "#ffffff",
   border: "none",
-  borderRadius: 5,
+  borderRadius: 8,
   fontWeight: "bold",
   cursor: "pointer"
 };
@@ -256,7 +253,7 @@ const submitBtn = {
 const toggleBtn = {
   background: "none",
   border: "none",
-  color: "#4a148c",
+  color: "#203a43",
   cursor: "pointer",
   textDecoration: "underline"
 };
