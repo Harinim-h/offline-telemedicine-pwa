@@ -1,27 +1,44 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 export default function AdminHome() {
+  const { t } = useTranslation();
+
   return (
     <div style={page}>
-      <h2 style={title}>Admin Dashboard 🛠️</h2>
+      <h2 style={title}>
+        {t("admin_dashboard")} 
+      </h2>
 
       <div style={grid}>
-        <Card title="👥 Users" desc="Manage patients & doctors" />
-        <Card title="📅 Appointments" desc="All booked appointments" />
-        <Card title="🏥 Doctors" desc="Doctor availability & profiles" />
-        <Card title="⚙️ Settings" desc="System configuration" />
+        <Card
+          title={t("admin_users_title")}
+          desc={t("admin_users_desc")}
+        />
+        <Card
+          title={t("admin_appointments_title")}
+          desc={t("admin_appointments_desc")}
+        />
+        <Card
+          title={t("admin_doctors_title")}
+          desc={t("admin_doctors_desc")}
+        />
+        <Card
+          title={t("admin_settings_title")}
+          desc={t("admin_settings_desc")}
+        />
       </div>
 
-      <Section title="System Overview">
-        <ListItem text="👤 Total Patients: 128" />
-        <ListItem text="👨‍⚕️ Total Doctors: 14" />
-        <ListItem text="📅 Appointments Today: 22" />
+      <Section title={t("system_overview")}>
+        <ListItem text={` ${t("total_patients")}: 128`} />
+        <ListItem text={` ${t("total_doctors")}: 14`} />
+        <ListItem text={` ${t("appointments_today")}: 22`} />
       </Section>
 
-      <Section title="Admin Actions">
-        <ListItem text="✔ Approve new doctors" />
-        <ListItem text="✔ Monitor appointment logs" />
-        <ListItem text="✔ Update health guidelines" />
+      <Section title={t("admin_actions")}>
+        <ListItem text={`✔ ${t("approve_doctors")}`} />
+        <ListItem text={`✔ ${t("monitor_logs")}`} />
+        <ListItem text={`✔ ${t("update_guidelines")}`} />
       </Section>
     </div>
   );
@@ -51,7 +68,7 @@ function ListItem({ text }) {
   return <div style={listItem}>{text}</div>;
 }
 
-/* ---------- Styles ---------- */
+/* ---------- Styles (UNCHANGED) ---------- */
 
 const page = {
   padding: 24,

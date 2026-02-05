@@ -1,0 +1,111 @@
+{
+  "welcome": "स्वागत है",
+  "login": "लॉगिन करें",
+  "select_role": "भूमिका चुनें",
+  "register": "रजिस्टर करें",
+
+  "patient": "मरीज",
+  "doctor": "डॉक्टर",
+  "admin": "प्रशासक",
+
+  "name": "नाम",
+  "age": "उम्र",
+  "mobile": "मोबाइल नंबर",
+  "email": "ईमेल",
+  "phone": "फोन नंबर",
+  "password": "पासवर्ड",
+  "condition": "स्वास्थ्य स्थिति",
+
+  "already_account": "पहले से खाता है? लॉगिन करें",
+  "new_user": "नए उपयोगकर्ता हैं? खाता बनाएं",
+
+  "invalid_credentials": "अमान्य विवरण",
+  "registered_success": "सफलतापूर्वक रजिस्टर किया गया",
+  "please_login": "रजिस्ट्रेशन सफल। कृपया लॉगिन करें।",
+
+  "save": "सेव करें",
+  "cancel": "रद्द करें",
+  "close": "✖",
+
+  "nav": {
+    "home": "होम",
+    "appointments": "अपॉइंटमेंट",
+    "symptoms": "लक्षण",
+    "health_tips": "स्वास्थ्य सुझाव",
+    "consultation": "परामर्श",
+    "doctors": "डॉक्टर उपलब्धता",
+    "profile": "प्रोफ़ाइल",
+    "pharmacy": "फार्मेसी",
+    "dashboard": "डैशबोर्ड",
+    "users": "उपयोगकर्ता",
+    "settings": "सेटिंग्स"
+  },
+
+  "book_appointment_title": "अपॉइंटमेंट बुक करें",
+  "book_appointment_desc": "डॉक्टर से मिलने का समय तय करें",
+
+  "symptom_checker_title": " लक्षण जांच",
+  "symptom_checker_desc": "अपने स्वास्थ्य लक्षण जांचें",
+
+  "consultation_title": " परामर्श",
+  "consultation_desc": "ऑनलाइन डॉक्टर परामर्श",
+
+  "doctors_title": " डॉक्टर",
+  "doctors_desc": "उपलब्ध डॉक्टर",
+
+  "your_appointments": "आपकी अपॉइंटमेंट",
+  "appointment_1": "12 फ़रवरी 2026 | 10:30 AM | डॉ. कुमार",
+  "appointment_2": "18 फ़रवरी 2026 | 04:00 PM | डॉ. अंजलि",
+
+  "health_tips_title": "स्वास्थ्य सुझाव",
+  "health_tip_1": " रोज़ पर्याप्त पानी पिएं",
+  "health_tip_2": " रोज़ 30 मिनट टहलें",
+
+  "welcome_doctor": "स्वागत है डॉक्टर",
+
+  "add_patient_title": " मरीज जोड़ें",
+  "add_patient_desc": "नए मरीज की जानकारी जोड़ें",
+
+  "view_patients_title": " मरीज सूची",
+  "view_patients_desc": "सभी मरीजों का विवरण देखें",
+
+  "appointments_title": " अपॉइंटमेंट",
+  "appointments_desc": "आज की निर्धारित अपॉइंटमेंट",
+
+  "prescriptions_title": "प्रिस्क्रिप्शन",
+  "prescriptions_desc": "दवाइयों का प्रबंधन",
+
+  "patient_name": "मरीज का नाम",
+  "patient_age": "उम्र",
+  "patient_condition": "स्वास्थ्य स्थिति",
+  "save_patient": "मरीज सेव करें",
+  "patient_added_success": "मरीज सफलतापूर्वक जोड़ा गया",
+
+  "patient_list": "मरीज सूची",
+  "no_patients": "कोई मरीज नहीं",
+
+  "admin_dashboard": "एडमिन डैशबोर्ड",
+
+  "admin_users_title": " उपयोगकर्ता",
+  "admin_users_desc": "मरीज और डॉक्टर प्रबंधन",
+
+  "admin_appointments_title": " अपॉइंटमेंट",
+  "admin_appointments_desc": "सभी बुक की गई अपॉइंटमेंट",
+
+  "admin_doctors_title": " डॉक्टर",
+  "admin_doctors_desc": "डॉक्टर उपलब्धता और प्रोफ़ाइल",
+
+  "admin_settings_title": " सेटिंग्स",
+  "admin_settings_desc": "सिस्टम कॉन्फ़िगरेशन",
+
+  "system_overview": "सिस्टम अवलोकन",
+
+  "total_patients": " कुल मरीज: 128",
+  "total_doctors": " कुल डॉक्टर: 14",
+  "appointments_today": " आज की अपॉइंटमेंट: 22",
+
+  "admin_actions": "एडमिन कार्य",
+  "approve_doctors": " नए डॉक्टरों को स्वीकृत करें",
+  "monitor_logs": " अपॉइंटमेंट लॉग देखें",
+  "update_guidelines": " स्वास्थ्य दिशानिर्देश अपडेट करें"
+}

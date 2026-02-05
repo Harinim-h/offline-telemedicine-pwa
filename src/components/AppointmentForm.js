@@ -16,7 +16,7 @@ export default function AppointmentForm() {
       synced: false,
     });
 
-    alert("Appointment saved offline ✅");
+    alert("Appointment saved offline ");
     setName("");
     setDate("");
     setReason("");

@@ -1,0 +1,111 @@
+{
+  "welcome": "Welcome",
+  "login": "Login",
+  "select_role": "Select Role",
+  "register": "Create account",
+
+  "patient": "Patient",
+  "doctor": "Doctor",
+  "admin": "Admin",
+
+  "name": "Name",
+  "age": "Age",
+  "mobile": "Mobile Number",
+  "email": "Email",
+  "phone": "Phone Number",
+  "password": "Password",
+  "condition": "Condition",
+
+  "already_account": "Already have an account? Sign in",
+  "new_user": "New here? Create an account",
+
+  "invalid_credentials": "Invalid credentials",
+  "registered_success": "Registered successfully",
+  "please_login": "Registration successful. Please login to continue.",
+
+  "save": "Save",
+  "cancel": "Cancel",
+  "close": "✖",
+
+  "nav": {
+    "home": "Home",
+    "appointments": "Appointments",
+    "symptoms": "Symptoms",
+    "health_tips": "Health Tips",
+    "consultation": "Consultation",
+    "doctors": "Doctor Availability",
+    "profile": "Profile",
+    "pharmacy": "Pharmacy",
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "settings": "Settings"
+  },
+
+  "book_appointment_title": "Book Appointment",
+  "book_appointment_desc": "Schedule doctor visit",
+
+  "symptom_checker_title": "Symptom Checker",
+  "symptom_checker_desc": "Check health symptoms",
+
+  "consultation_title": " Consultation",
+  "consultation_desc": "Online consultation",
+
+  "doctors_title": " Doctors",
+  "doctors_desc": "Available doctors",
+
+  "your_appointments": "Your Appointments",
+  "appointment_1": "12 Feb 2026 | 10:30 AM | Dr. Kumar",
+  "appointment_2": "18 Feb 2026 | 04:00 PM | Dr. Anjali",
+
+  "health_tips_title": "Health Tips",
+  "health_tip_1": " Drink plenty of water daily",
+  "health_tip_2": " Walk 30 minutes every day",
+
+  "welcome_doctor": "Welcome Doctor",
+
+  "add_patient_title": " Add Patient",
+  "add_patient_desc": "Add new patient details",
+
+  "view_patients_title": " View Patients",
+  "view_patients_desc": "See all patient records",
+
+  "appointments_title": " Appointments",
+  "appointments_desc": "Today’s scheduled visits",
+
+  "prescriptions_title": " Prescriptions",
+  "prescriptions_desc": "Manage prescriptions",
+
+  "patient_name": "Patient Name",
+  "patient_age": "Age",
+  "patient_condition": "Health Condition",
+  "save_patient": "Save Patient",
+  "patient_added_success": "Patient added successfully",
+
+  "patient_list": "Patient List",
+  "no_patients": "No patients yet",
+
+  "admin_dashboard": "Admin Dashboard",
+
+  "admin_users_title": " Users",
+  "admin_users_desc": "Manage patients & doctors",
+
+  "admin_appointments_title": " Appointments",
+  "admin_appointments_desc": "All booked appointments",
+
+  "admin_doctors_title": " Doctors",
+  "admin_doctors_desc": "Doctor availability & profiles",
+
+  "admin_settings_title": " Settings",
+  "admin_settings_desc": "System configuration",
+
+  "system_overview": "System Overview",
+
+  "total_patients": "Total Patients: 128",
+  "total_doctors": " Total Doctors: 14",
+  "appointments_today": " Appointments Today: 22",
+
+  "admin_actions": "Admin Actions",
+  "approve_doctors": "Approve new doctors",
+  "monitor_logs": " Monitor appointment logs",
+  "update_guidelines": "Update health guidelines"
+}

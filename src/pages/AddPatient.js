@@ -21,10 +21,10 @@ export default function AddPatient() {
         createdAt: new Date()
       });
 
-      setMsg("Patient added successfully ✅");
+      setMsg("Patient added successfully ");
       setTimeout(() => navigate("/doctor/patients"), 1000);
     } catch {
-      setMsg("Error adding patient ❌");
+      setMsg("Error adding patient ");
     }
   };
 

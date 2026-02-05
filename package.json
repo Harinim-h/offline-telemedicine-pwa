@@ -10,7 +10,7 @@
     "@testing-library/user-event": "^13.5.0",
     "cra-template-pwa": "^2.0.0",
     "firebase": "^12.8.0",
-    "i18next": "^25.8.0",
+    "i18next": "^25.8.3",
     "idb": "^8.0.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

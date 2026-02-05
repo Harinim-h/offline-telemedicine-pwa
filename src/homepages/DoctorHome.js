@@ -1,35 +1,37 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import PatientForm from "../components/PatientForm";
 import PatientList from "../components/PatientList";
 
 export default function DoctorHome() {
+  const { t } = useTranslation();
   const [showAdd, setShowAdd] = useState(false);
   const [showList, setShowList] = useState(false);
 
   return (
     <div style={page}>
-      <h2 style={title}>Welcome Doctor 👨‍⚕️</h2>
+      <h2 style={title}>{t("welcome_doctor")} </h2>
 
       {/* Shortcut Cards */}
       <div style={grid}>
         <div style={card} onClick={() => setShowAdd(true)}>
-          <h4>➕ Add Patient</h4>
-          <p>Add new patient details</p>
+          <h4>{t("add_patient_title")}</h4>
+          <p>{t("add_patient_desc")}</p>
         </div>
 
         <div style={card} onClick={() => setShowList(true)}>
-          <h4>📋 View Patients</h4>
-          <p>See all patient records</p>
+          <h4>{t("view_patients_title")}</h4>
+          <p>{t("view_patients_desc")}</p>
         </div>
 
         <div style={card}>
-          <h4>📅 Appointments</h4>
-          <p>Today’s scheduled visits</p>
+          <h4>{t("appointments_title")}</h4>
+          <p>{t("appointments_desc")}</p>
         </div>
 
         <div style={card}>
-          <h4>🧾 Prescriptions</h4>
-          <p>Manage prescriptions</p>
+          <h4>{t("prescriptions_title")}</h4>
+          <p>{t("prescriptions_desc")}</p>
         </div>
       </div>
 
@@ -52,10 +54,13 @@ export default function DoctorHome() {
 
 /* ---------- Modal ---------- */
 function Modal({ children, onClose }) {
+  const { t } = useTranslation();
   return (
     <div style={overlay}>
       <div style={modal}>
-        <button style={closeBtn} onClick={onClose}>✖</button>
+        <button style={closeBtn} onClick={onClose}>
+          {t("close")}
+        </button>
         {children}
       </div>
     </div>

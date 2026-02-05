@@ -1,27 +1,43 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 export default function PatientHome() {
   const user = JSON.parse(sessionStorage.getItem("userData"));
+  const { t } = useTranslation();
 
   return (
     <div style={page}>
-      <h2 style={title}>Welcome, {user?.name || "Patient"} 👋</h2>
+      <h2 style={title}>
+        {t("welcome")}, {user?.name || t("patient")} 
+      </h2>
 
       <div style={grid}>
-        <Card title="📅 Book Appointment" desc="Schedule doctor visit" />
-        <Card title="🩺 Symptom Checker" desc="Check health symptoms" />
-        <Card title="💬 Consultation" desc="Online consultation" />
-        <Card title="👨‍⚕️ Doctors" desc="Available doctors" />
+        <Card
+          title={t("book_appointment_title")}
+          desc={t("book_appointment_desc")}
+        />
+        <Card
+          title={t("symptom_checker_title")}
+          desc={t("symptom_checker_desc")}
+        />
+        <Card
+          title={t("consultation_title")}
+          desc={t("consultation_desc")}
+        />
+        <Card
+          title={t("doctors_title")}
+          desc={t("doctors_desc")}
+        />
       </div>
 
-      <Section title="Your Appointments">
-        <ListItem text="12 Feb 2026 | 10:30 AM | Dr. Kumar" />
-        <ListItem text="18 Feb 2026 | 04:00 PM | Dr. Anjali" />
+      <Section title={t("your_appointments")}>
+        <ListItem text={t("appointment_1")} />
+        <ListItem text={t("appointment_2")} />
       </Section>
 
-      <Section title="Health Tips">
-        <ListItem text="💧 Drink plenty of water daily" />
-        <ListItem text="🚶 Walk 30 minutes every day" />
+      <Section title={t("health_tips")}>
+        <ListItem text={t("health_tip_1")} />
+        <ListItem text={t("health_tip_2")} />
       </Section>
     </div>
   );

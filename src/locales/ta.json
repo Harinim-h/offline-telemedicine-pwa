@@ -1,0 +1,110 @@
+{
+  "welcome": "வரவேற்கிறோம்",
+  "login": "உள்நுழை",
+  "select_role": "தொடர உங்கள் வகையை தேர்வு செய்யவும்",
+  "register": "பதிவு செய்ய",
+
+  "patient": "நோயாளர்",
+  "doctor": "மருத்துவர்",
+  "admin": "நிர்வாகி",
+
+  "name": "பெயர்",
+  "age": "வயது",
+  "mobile": "மொபைல் எண்",
+  "email": "மின்னஞ்சல்",
+  "phone": "தொலைபேசி எண்",
+  "password": "கடவுச்சொல்",
+  "condition": "உடல்நிலை",
+
+  "already_account": "ஏற்கனவே கணக்கு உள்ளதா? உள்நுழையவும்",
+  "new_user": "புதிய பயனரா? கணக்கு உருவாக்கவும்",
+
+  "invalid_credentials": "தவறான உள்நுழைவு விவரங்கள்",
+  "registered_success": "வெற்றிகரமாக பதிவு செய்யப்பட்டது",
+  "please_login": "பதிவு வெற்றிகரமாக முடிந்தது. தொடர உள்நுழையவும்.",
+
+  "save": "சேமிக்கவும்",
+  "cancel": "ரத்து செய்யவும்",
+  "close": "✖",
+
+  "nav": {
+    "home": "முகப்பு",
+    "appointments": "நியமனங்கள்",
+    "symptoms": "அறிகுறிகள்",
+    "health_tips": "ஆரோக்கிய குறிப்புகள்",
+    "consultation": "ஆலோசனை",
+    "doctors": "மருத்துவர் கிடைக்கும் நேரம்",
+    "profile": "சுயவிவரம்",
+    "pharmacy": "மருந்தகம்",
+    "dashboard": "டாஷ்போர்டு",
+    "users": "பயனர்கள்",
+    "settings": "அமைப்புகள்"
+  },
+
+  "book_appointment_title": " நேரம் முன்பதிவு",
+  "book_appointment_desc": "மருத்துவர் சந்திப்பை திட்டமிடுங்கள்",
+
+  "symptom_checker_title": " அறிகுறி பரிசோதனை",
+  "symptom_checker_desc": "உடல்நல அறிகுறிகளை சரிபார்க்கவும்",
+
+  "consultation_title": " ஆலோசனை",
+  "consultation_desc": "ஆன்லைன் மருத்துவ ஆலோசனை",
+
+  "doctors_title": " மருத்துவர்கள்",
+  "doctors_desc": "கிடைக்கும் மருத்துவர்கள்",
+
+  "your_appointments": "உங்கள் நேரங்கள்",
+  "appointment_1": "12 பிப்ரவரி 2026 | காலை 10:30 | டாக்டர் குமார்",
+  "appointment_2": "18 பிப்ரவரி 2026 | மாலை 04:00 | டாக்டர் அஞ்சலி",
+
+  "health_tips_title": "உடல்நல குறிப்புகள்",
+  "health_tip_1": "தினமும் அதிகமாக தண்ணீர் குடிக்கவும்",
+  "health_tip_2": " தினமும் 30 நிமிடம் நடக்கவும்",
+
+  "welcome_doctor": "வரவேற்கிறோம் டாக்டர்",
+
+  "add_patient_title": " நோயாளர் சேர்க்க",
+  "add_patient_desc": "புதிய நோயாளர் விவரங்கள்",
+
+  "view_patients_title": " நோயாளர் பட்டியல்",
+  "view_patients_desc": "அனைத்து பதிவுகளையும் பார்க்க",
+
+  "appointments_title": " நேரங்கள்",
+  "appointments_desc": "இன்றைய சந்திப்புகள்",
+
+  "prescriptions_title": " மருந்து சீட்டுகள்",
+  "prescriptions_desc": "மருந்துகளை நிர்வகிக்க",
+
+  "patient_name": "நோயாளர் பெயர்",
+  "patient_age": "வயது",
+  "patient_condition": "உடல்நிலை",
+  "save_patient": "சேமிக்கவும்",
+  "patient_added_success": "நோயாளர் சேர்க்கப்பட்டது",
+
+  "patient_list": "நோயாளர் பட்டியல்",
+  "no_patients": "நோயாளிகள் இல்லை",
+
+  "admin_dashboard": "நிர்வாக டாஷ்போர்டு",
+
+  "admin_users_title": "பயனர்கள்",
+  "admin_users_desc": "நோயாளிகள் மற்றும் மருத்துவர்களை நிர்வகிக்க",
+
+  "admin_appointments_title": " நேரங்கள்",
+  "admin_appointments_desc": "அனைத்து பதிவு செய்யப்பட்ட நேரங்கள்",
+  "admin_doctors_title": " மருத்துவர்கள்",
+  "admin_doctors_desc": "மருத்துவர் கிடைப்பும் சுயவிவரங்களும்",
+
+  "admin_settings_title": " அமைப்புகள்",
+  "admin_settings_desc": "அமைப்பு கட்டமைப்பு",
+
+  "system_overview": "அமைப்பு கண்ணோட்டம்",
+
+  "total_patients": " மொத்த நோயாளிகள்: 128",
+  "total_doctors": " மொத்த மருத்துவர்கள்: 14",
+  "appointments_today": " இன்றைய நேரங்கள்: 22",
+
+  "admin_actions": "நிர்வாக செயல்கள்",
+  "approve_doctors": " புதிய மருத்துவர்களை அனுமதி",
+  "monitor_logs": " நேர பதிவு கண்காணிப்பு",
+  "update_guidelines": " சுகாதார வழிகாட்டுதல்களை புதுப்பிக்க"
+}
