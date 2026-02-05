@@ -1,17 +1,25 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+
 import Navbar from "./components/Navbar";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import AddPatient from "./pages/AddPatient";
 import DoctorPatients from "./pages/DoctorPatients";
+
 import PatientHome from "./homepages/PatientHome";
 import DoctorHome from "./homepages/DoctorHome";
 import AdminHome from "./homepages/AdminHome";
 
 function App() {
+  const location = useLocation();
+
+  // Hide navbar on login page
+  const hideNavbar = location.pathname === "/" || location.pathname === "/login";
+
   return (
-    <BrowserRouter>
-      <Navbar />
+    <>
+      {!hideNavbar && <Navbar />}
 
       <Routes>
         <Route path="/" element={<Login />} />
@@ -19,15 +27,17 @@ function App() {
 
         <Route path="/home" element={<Home />} />
 
-<Route path="/doctor/add-patient" element={<AddPatient />} />
-<Route path="/doctor/patients" element={<DoctorPatients />} />
+        <Route path="/doctor/add-patient" element={<AddPatient />} />
+        <Route path="/doctor/patients" element={<DoctorPatients />} />
+
         <Route path="/patient-home" element={<PatientHome />} />
         <Route path="/doctor-home" element={<DoctorHome />} />
         <Route path="/admin-home" element={<AdminHome />} />
 
+        {/* fallback */}
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
-    </BrowserRouter>
+    </>
   );
 }
 
