@@ -24,7 +24,7 @@ export default function Navbar() {
 
   return (
     <header style={styles.header}>
-      <div style={styles.logo}>TeleCare</div>
+      <div style={styles.logo}>🩺</div>
 
       {/* 📱 MOBILE MENU BUTTON */}
       {isMobile && (
@@ -43,7 +43,11 @@ export default function Navbar() {
       {/* 📱 MOBILE NAV */}
       {isMobile && open && (
         <div style={styles.mobileMenu}>
-          <MenuLinks role={role} t={t} onClick={() => setOpen(false)} />
+          <MenuLinks
+            role={role}
+            t={t}
+            onClick={() => setOpen(false)}
+          />
         </div>
       )}
     </header>
@@ -69,7 +73,7 @@ function MenuLinks({ role, t, onClick }) {
 
       {role === "doctor" && (
         <>
-          <NavItem to="/home" label={t("nav.home")} onClick={onClick} />
+          <NavItem to="/doctor-home" label={t("nav.dashboard")} onClick={onClick} />
           <NavItem to="/appointments" label={t("nav.appointments")} onClick={onClick} />
           <NavItem to="/pharmacy" label={t("nav.pharmacy")} onClick={onClick} />
           <NavItem to="/consult" label={t("nav.consultation")} onClick={onClick} />
@@ -78,9 +82,10 @@ function MenuLinks({ role, t, onClick }) {
 
       {role === "admin" && (
         <>
-          <NavItem to="/home" label={t("nav.dashboard")} onClick={onClick} />
+          <NavItem to="/admin-home" label={t("nav.dashboard")} onClick={onClick} />
           <NavItem to="/appointments" label={t("nav.appointments")} onClick={onClick} />
           <NavItem to="/users" label={t("nav.users")} onClick={onClick} />
+          <NavItem to="/pharmacy" label={t("nav.pharmacy")} onClick={onClick} />
           <NavItem to="/settings" label={t("nav.settings")} onClick={onClick} />
         </>
       )}

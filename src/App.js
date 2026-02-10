@@ -6,7 +6,7 @@ import Login from "./pages/Login";
 import Home from "./pages/Home";
 import AddPatient from "./pages/AddPatient";
 import DoctorPatients from "./pages/DoctorPatients";
-
+import PharmacyAvailability from "./pages/PharmacyAvailability";
 import PatientHome from "./homepages/PatientHome";
 import DoctorHome from "./homepages/DoctorHome";
 import AdminHome from "./homepages/AdminHome";
@@ -30,6 +30,7 @@ function App() {
         <Route path="/doctor/add-patient" element={<AddPatient />} />
         <Route path="/doctor/patients" element={<DoctorPatients />} />
 
+        <Route path="/pharmacy" element={<PharmacyAvailability />} />
         <Route path="/patient-home" element={<PatientHome />} />
         <Route path="/doctor-home" element={<DoctorHome />} />
         <Route path="/admin-home" element={<AdminHome />} />
