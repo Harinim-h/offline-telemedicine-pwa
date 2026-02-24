@@ -5,6 +5,8 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import i18n from "../i18n";
 
+const LOCAL_PATIENT_USERS_KEY = "offline_patient_users";
+
 export default function Login() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -46,6 +48,25 @@ export default function Login() {
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  const getOfflinePatients = () => {
+    try {
+      return JSON.parse(localStorage.getItem(LOCAL_PATIENT_USERS_KEY)) || {};
+    } catch {
+      return {};
+    }
+  };
+
+  const saveOfflinePatient = (mobile, data) => {
+    const allPatients = getOfflinePatients();
+    allPatients[mobile] = data;
+    localStorage.setItem(LOCAL_PATIENT_USERS_KEY, JSON.stringify(allPatients));
+  };
+
+  const getOfflinePatient = (mobile) => {
+    const allPatients = getOfflinePatients();
+    return allPatients[mobile] || null;
+  };
+
   /* ---------------- SUBMIT ---------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,9 +75,11 @@ export default function Login() {
     try {
       /* ===== DOCTOR DIRECT LOGIN ===== */
       if (role === "doctor") {
+        const email = (formData.email || "").trim().toLowerCase();
+        const password = (formData.password || "").trim();
         if (
-          formData.email === "doctor@gmail.com" &&
-          formData.password === "doctor@123"
+          email === "doctor@gmail.com" &&
+          password === "doctor@123"
         ) {
           sessionStorage.setItem("role", "doctor");
           sessionStorage.setItem(
@@ -73,9 +96,11 @@ export default function Login() {
 
       /* ===== ADMIN DIRECT LOGIN ===== */
       if (role === "admin") {
+        const email = (formData.email || "").trim().toLowerCase();
+        const password = (formData.password || "").trim();
         if (
-          formData.email === "admin@gmail.com" &&
-          formData.password === "admin@123"
+          email === "admin@gmail.com" &&
+          password === "admin@123"
         ) {
           sessionStorage.setItem("role", "admin");
           sessionStorage.setItem(
@@ -91,7 +116,7 @@ export default function Login() {
       }
 
       /* ===== PATIENT REGISTER / LOGIN ===== */
-      const userId = formData.mobile;
+      const userId = (formData.mobile || "").trim();
       if (!userId) {
         alert("Mobile number required");
         setLoading(false);
@@ -99,18 +124,31 @@ export default function Login() {
       }
 
       const userRef = doc(db, "users", `patient_${userId}`);
-      const snap = await getDoc(userRef);
+      let snap = null;
+      try {
+        snap = await getDoc(userRef);
+      } catch (error) {
+        // Firestore can fail in offline/restricted mode; fallback to local storage.
+        snap = null;
+      }
+      const offlineUser = getOfflinePatient(userId);
+      const patientData = { ...formData, mobile: userId, role: "patient" };
 
       // REGISTER
       if (isNewUser) {
-        if (snap.exists()) {
+        if ((snap && snap.exists()) || offlineUser) {
           alert("User already exists. Please login.");
           setIsNewUser(false);
           setLoading(false);
           return;
         }
 
-        await setDoc(userRef, { ...formData, role: "patient" });
+        saveOfflinePatient(userId, patientData);
+        try {
+          await setDoc(userRef, patientData);
+        } catch (error) {
+          // Keep registration successful offline.
+        }
         alert(t("registered_success"));
         setIsNewUser(false);
         setFormData({});
@@ -119,14 +157,17 @@ export default function Login() {
       }
 
       // LOGIN
-      if (!snap.exists()) {
+      if (!(snap && snap.exists()) && !offlineUser) {
         alert(t("invalid_credentials"));
         setLoading(false);
         return;
       }
 
       sessionStorage.setItem("role", "patient");
-      sessionStorage.setItem("userData", JSON.stringify(snap.data()));
+      sessionStorage.setItem(
+        "userData",
+        JSON.stringify((snap && snap.exists() && snap.data()) || offlineUser)
+      );
       navigate("/patient-home");
     } catch (err) {
       console.error(err);

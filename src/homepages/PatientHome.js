@@ -1,9 +1,11 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 export default function PatientHome() {
   const user = JSON.parse(sessionStorage.getItem("userData"));
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   return (
     <div style={page}>
@@ -23,6 +25,7 @@ export default function PatientHome() {
         <Card
           title={t("consultation_title")}
           desc={t("consultation_desc")}
+          onClick={() => navigate("/consult")}
         />
         <Card
           title={t("doctors_title")}
@@ -45,9 +48,9 @@ export default function PatientHome() {
 
 /* ---------- Reusable Components ---------- */
 
-function Card({ title, desc }) {
+function Card({ title, desc, onClick }) {
   return (
-    <div style={card}>
+    <div style={card} onClick={onClick}>
       <h4>{title}</h4>
       <p style={{ opacity: 0.85 }}>{desc}</p>
     </div>

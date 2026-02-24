@@ -61,6 +61,8 @@
 
   "consultation_title": " Consultation",
   "consultation_desc": "Online consultation",
+  "video_call_card_title": " Video Call",
+  "video_call_card_desc": "Start live consultation",
 
   "doctors_title": " Doctors",
   "doctors_desc": "Available doctors",
@@ -119,5 +121,28 @@
   "admin_actions": "Admin Actions",
   "approve_doctors": "Approve new doctors",
   "monitor_logs": " Monitor appointment logs",
-  "update_guidelines": "Update health guidelines"
+  "update_guidelines": "Update health guidelines",
+  "video_call_title": "Video Consultation",
+  "video_call_online": "Online",
+  "video_call_offline": "Offline",
+  "video_call_doctor_hint": "Start a room and share the code with your patient.",
+  "video_call_patient_hint": "Enter your doctor's room code to join the call.",
+  "video_call_room_code": "Consultation Room Code",
+  "video_call_generate": "Generate Code",
+  "video_call_signed_as": "Signed in as",
+  "video_call_you": "Your Video",
+  "video_call_remote": "Doctor / Patient",
+  "video_call_remote_idle": "Join a room to begin live video consultation.",
+  "video_call_join": "Join Call",
+  "video_call_connecting": "Connecting...",
+  "video_call_waiting": "Connected. Waiting for the other participant...",
+  "video_call_mute": "Mute Mic",
+  "video_call_unmute": "Unmute Mic",
+  "video_call_camera_off": "Camera Off",
+  "video_call_camera_on": "Camera On",
+  "video_call_end": "End Call",
+  "video_call_ended": "Call ended. You can join again anytime.",
+  "video_call_enter_room": "Enter or generate a room code first.",
+  "video_call_not_supported": "This browser does not support video calls.",
+  "video_call_permission_error": "Camera/microphone access denied. Please allow permissions."
 }

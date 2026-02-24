@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import PatientForm from "../components/PatientForm";
 import PatientList from "../components/PatientList";
 
 export default function DoctorHome() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [showAdd, setShowAdd] = useState(false);
   const [showList, setShowList] = useState(false);
 
@@ -29,9 +31,9 @@ export default function DoctorHome() {
           <p>{t("appointments_desc")}</p>
         </div>
 
-        <div style={card}>
-          <h4>{t("prescriptions_title")}</h4>
-          <p>{t("prescriptions_desc")}</p>
+        <div style={card} onClick={() => navigate("/consult")}>
+          <h4>{t("video_call_card_title")}</h4>
+          <p>{t("video_call_card_desc")}</p>
         </div>
       </div>
 
