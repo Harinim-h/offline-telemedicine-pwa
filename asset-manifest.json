@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/offline-telemedicine-pwa/static/css/main.e6c13ad2.css",
-    "main.js": "/offline-telemedicine-pwa/static/js/main.c620d136.js",
+    "main.js": "/offline-telemedicine-pwa/static/js/main.97f279fe.js",
     "static/js/453.5750369c.chunk.js": "/offline-telemedicine-pwa/static/js/453.5750369c.chunk.js",
     "index.html": "/offline-telemedicine-pwa/index.html",
     "main.e6c13ad2.css.map": "/offline-telemedicine-pwa/static/css/main.e6c13ad2.css.map",
-    "main.c620d136.js.map": "/offline-telemedicine-pwa/static/js/main.c620d136.js.map",
+    "main.97f279fe.js.map": "/offline-telemedicine-pwa/static/js/main.97f279fe.js.map",
     "453.5750369c.chunk.js.map": "/offline-telemedicine-pwa/static/js/453.5750369c.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.e6c13ad2.css",
-    "static/js/main.c620d136.js"
+    "static/js/main.97f279fe.js"
   ]
 }
