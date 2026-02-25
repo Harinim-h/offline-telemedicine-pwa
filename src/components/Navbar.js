@@ -89,6 +89,12 @@ function MenuLinks({ role, t, onClick }) {
           <NavItem to="/settings" label={t("nav.settings")} onClick={onClick} />
         </>
       )}
+
+      {role === "pharmacy" && (
+        <>
+          <NavItem to="/pharmacy" label={t("nav.pharmacy")} onClick={onClick} />
+        </>
+      )}
     </>
   );
 }

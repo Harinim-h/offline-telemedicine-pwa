@@ -8,6 +8,8 @@ import AddPatient from "./pages/AddPatient";
 import DoctorPatients from "./pages/DoctorPatients";
 import PharmacyAvailability from "./pages/PharmacyAvailability";
 import Consultation from "./pages/Consultation";
+import Appointments from "./pages/Appointments";
+import Chat from "./pages/Chat";
 import PatientHome from "./homepages/PatientHome";
 import DoctorHome from "./homepages/DoctorHome";
 import AdminHome from "./homepages/AdminHome";
@@ -32,6 +34,8 @@ function App() {
         <Route path="/doctor/patients" element={<DoctorPatients />} />
 
         <Route path="/pharmacy" element={<PharmacyAvailability />} />
+        <Route path="/appointments" element={<Appointments />} />
+        <Route path="/chat" element={<Chat />} />
         <Route path="/consult" element={<Consultation />} />
         <Route path="/patient-home" element={<PatientHome />} />
         <Route path="/doctor-home" element={<DoctorHome />} />

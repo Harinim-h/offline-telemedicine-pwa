@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { collection, addDoc } from "firebase/firestore";
-import { db } from "../firebase/firebaseConfig";
 import { useNavigate } from "react-router-dom";
+import { addPatientRecordCloud } from "../services/cloudData";
+import { hasSupabase } from "../supabaseClient";
 
 export default function AddPatient() {
   const [name, setName] = useState("");
@@ -14,11 +14,14 @@ export default function AddPatient() {
     e.preventDefault();
 
     try {
-      await addDoc(collection(db, "patients"), {
+      if (!hasSupabase || !navigator.onLine) {
+        setMsg("Supabase cloud or internet unavailable");
+        return;
+      }
+      await addPatientRecordCloud({
         name,
         age,
-        condition,
-        createdAt: new Date()
+        condition
       });
 
       setMsg("Patient added successfully ");

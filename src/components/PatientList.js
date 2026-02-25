@@ -1,18 +1,31 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
-import { db } from "../firebase/firebaseConfig";
+import { getAllPatientRecordsCloud } from "../services/cloudData";
+import { hasSupabase } from "../supabaseClient";
 
 function PatientList() {
   const { t } = useTranslation();
   const [patients, setPatients] = useState([]);
 
   useEffect(() => {
-    const q = query(collection(db, "patients"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setPatients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    return () => unsubscribe();
+    let active = true;
+
+    async function loadPatients() {
+      if (!hasSupabase || !navigator.onLine) {
+        setPatients([]);
+        return;
+      }
+      const data = await getAllPatientRecordsCloud();
+      if (!active) return;
+      setPatients(data);
+    }
+
+    loadPatients();
+    const timer = setInterval(loadPatients, 1500);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
   }, []);
 
   return (

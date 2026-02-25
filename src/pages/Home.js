@@ -29,6 +29,10 @@ export default function Home() {
     return <Navigate to="/admin-home" replace />;
   }
 
+  if (role === "pharmacy") {
+    return <Navigate to="/pharmacy" replace />;
+  }
+
   // ❌ Fallback
   return <Navigate to="/login" replace />;
 }

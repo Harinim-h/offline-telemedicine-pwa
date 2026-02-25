@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase/firebaseConfig";
+import { addPatientRecordCloud } from "../services/cloudData";
+import { hasSupabase } from "../supabaseClient";
 
 export default function PatientForm({ onClose }) {
   const { t } = useTranslation();
@@ -16,11 +16,11 @@ export default function PatientForm({ onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    await addDoc(collection(db, "patients"), {
-      ...form,
-      createdAt: serverTimestamp()
-    });
+    if (!hasSupabase || !navigator.onLine) {
+      alert("Supabase cloud is required and internet must be available.");
+      return;
+    }
+    await addPatientRecordCloud(form);
 
     alert(t("patient_added_success"));
     onClose();

@@ -17,6 +17,7 @@ export default function PatientHome() {
         <Card
           title={t("book_appointment_title")}
           desc={t("book_appointment_desc")}
+          onClick={() => navigate("/appointments")}
         />
         <Card
           title={t("symptom_checker_title")}
@@ -30,6 +31,7 @@ export default function PatientHome() {
         <Card
           title={t("doctors_title")}
           desc={t("doctors_desc")}
+          onClick={() => navigate("/appointments")}
         />
       </div>
 

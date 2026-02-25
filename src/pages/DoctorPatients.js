@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../firebase/firebaseConfig";
+import { getAllPatientRecordsCloud } from "../services/cloudData";
+import { hasSupabase } from "../supabaseClient";
 
 export default function DoctorPatients() {
   const [patients, setPatients] = useState([]);
 
   useEffect(() => {
     const fetchPatients = async () => {
-      const snap = await getDocs(collection(db, "patients"));
-      setPatients(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      if (!hasSupabase || !navigator.onLine) {
+        setPatients([]);
+        return;
+      }
+      const data = await getAllPatientRecordsCloud();
+      setPatients(data);
     };
     fetchPatients();
   }, []);

@@ -1,11 +1,34 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { doc, setDoc, getDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import i18n from "../i18n";
+import {
+  getPatientUserCloud,
+  registerPatientUserCloud,
+  getPharmacyOwnerLoginCloud
+} from "../services/cloudData";
+import { hasSupabase } from "../supabaseClient";
 
-const LOCAL_PATIENT_USERS_KEY = "offline_patient_users";
+const DOCTOR_ACCOUNTS = [
+  {
+    id: "doc_kumar",
+    name: "Dr. Kumar",
+    email: "doctor@gmail.com",
+    password: "doctor@123"
+  },
+  {
+    id: "doc_anjali",
+    name: "Dr. Anjali",
+    email: "anjali@gmail.com",
+    password: "anjali@123"
+  },
+  {
+    id: "doc_arun",
+    name: "Dr. Arun",
+    email: "arun@gmail.com",
+    password: "arun@123"
+  }
+];
 
 export default function Login() {
   const { t } = useTranslation();
@@ -24,6 +47,10 @@ export default function Login() {
       { label: t("mobile"), name: "mobile", type: "tel" }
     ],
     doctor: [
+      { label: t("email"), name: "email", type: "email" },
+      { label: t("password"), name: "password", type: "password" }
+    ],
+    pharmacy: [
       { label: t("email"), name: "email", type: "email" },
       { label: t("password"), name: "password", type: "password" }
     ],
@@ -48,25 +75,6 @@ export default function Login() {
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const getOfflinePatients = () => {
-    try {
-      return JSON.parse(localStorage.getItem(LOCAL_PATIENT_USERS_KEY)) || {};
-    } catch {
-      return {};
-    }
-  };
-
-  const saveOfflinePatient = (mobile, data) => {
-    const allPatients = getOfflinePatients();
-    allPatients[mobile] = data;
-    localStorage.setItem(LOCAL_PATIENT_USERS_KEY, JSON.stringify(allPatients));
-  };
-
-  const getOfflinePatient = (mobile) => {
-    const allPatients = getOfflinePatients();
-    return allPatients[mobile] || null;
-  };
-
   /* ---------------- SUBMIT ---------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -77,14 +85,19 @@ export default function Login() {
       if (role === "doctor") {
         const email = (formData.email || "").trim().toLowerCase();
         const password = (formData.password || "").trim();
-        if (
-          email === "doctor@gmail.com" &&
-          password === "doctor@123"
-        ) {
+        const doctor = DOCTOR_ACCOUNTS.find(
+          (d) => d.email === email && d.password === password
+        );
+        if (doctor) {
           sessionStorage.setItem("role", "doctor");
           sessionStorage.setItem(
             "userData",
-            JSON.stringify({ role: "doctor", email: "doctor@gmail.com" })
+            JSON.stringify({
+              role: "doctor",
+              id: doctor.id,
+              name: doctor.name,
+              email: doctor.email
+            })
           );
           navigate("/doctor-home");
         } else {
@@ -115,6 +128,44 @@ export default function Login() {
         return;
       }
 
+      /* ===== PHARMACY LOGIN (FROM SUPABASE) ===== */
+      if (role === "pharmacy") {
+        if (!hasSupabase) {
+          alert("Supabase is not configured.");
+          setLoading(false);
+          return;
+        }
+        if (!navigator.onLine) {
+          alert("Internet required for pharmacy login.");
+          setLoading(false);
+          return;
+        }
+
+        const email = (formData.email || "").trim().toLowerCase();
+        const password = (formData.password || "").trim();
+        const pharmacy = await getPharmacyOwnerLoginCloud(email, password);
+
+        if (!pharmacy) {
+          alert("Invalid Pharmacy Credentials");
+          setLoading(false);
+          return;
+        }
+
+        sessionStorage.setItem("role", "pharmacy");
+        sessionStorage.setItem(
+          "userData",
+          JSON.stringify({
+            role: "pharmacy",
+            email: pharmacy.ownerEmail,
+            pharmacyId: pharmacy.id,
+            pharmacyName: pharmacy.name
+          })
+        );
+        navigate("/pharmacy");
+        setLoading(false);
+        return;
+      }
+
       /* ===== PATIENT REGISTER / LOGIN ===== */
       const userId = (formData.mobile || "").trim();
       if (!userId) {
@@ -123,32 +174,28 @@ export default function Login() {
         return;
       }
 
-      const userRef = doc(db, "users", `patient_${userId}`);
-      let snap = null;
-      try {
-        snap = await getDoc(userRef);
-      } catch (error) {
-        // Firestore can fail in offline/restricted mode; fallback to local storage.
-        snap = null;
-      }
-      const offlineUser = getOfflinePatient(userId);
       const patientData = { ...formData, mobile: userId, role: "patient" };
+      if (!hasSupabase) {
+        alert("Supabase is not configured. Add REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.");
+        setLoading(false);
+        return;
+      }
+      if (!navigator.onLine) {
+        alert("Internet required for cloud login.");
+        setLoading(false);
+        return;
+      }
 
       // REGISTER
       if (isNewUser) {
-        if ((snap && snap.exists()) || offlineUser) {
+        const cloudExisting = await getPatientUserCloud(userId);
+        if (cloudExisting) {
           alert("User already exists. Please login.");
           setIsNewUser(false);
           setLoading(false);
           return;
         }
-
-        saveOfflinePatient(userId, patientData);
-        try {
-          await setDoc(userRef, patientData);
-        } catch (error) {
-          // Keep registration successful offline.
-        }
+        await registerPatientUserCloud(patientData);
         alert(t("registered_success"));
         setIsNewUser(false);
         setFormData({});
@@ -157,21 +204,36 @@ export default function Login() {
       }
 
       // LOGIN
-      if (!(snap && snap.exists()) && !offlineUser) {
+      const loginUser = await getPatientUserCloud(userId);
+
+      if (!loginUser) {
         alert(t("invalid_credentials"));
         setLoading(false);
         return;
       }
 
       sessionStorage.setItem("role", "patient");
+      sessionStorage.setItem("patientMobile", userId);
       sessionStorage.setItem(
         "userData",
-        JSON.stringify((snap && snap.exists() && snap.data()) || offlineUser)
+        JSON.stringify(loginUser)
       );
       navigate("/patient-home");
     } catch (err) {
       console.error(err);
-      alert("Something went wrong");
+      if (role === "pharmacy") {
+        const msg = String(err?.message || "");
+        const code = String(err?.code || "");
+        if (code === "42P01" || msg.toLowerCase().includes("relation") || msg.toLowerCase().includes("pharmacies")) {
+          alert("Pharmacy login failed: 'pharmacies' table not found. Run supabase-schema.sql in Supabase SQL Editor.");
+        } else if (code === "42501") {
+          alert("Pharmacy login failed: Supabase RLS policy denied access. Re-run supabase-schema.sql policies.");
+        } else {
+          alert(`Pharmacy login failed: ${msg || "Unknown error"}`);
+        }
+      } else {
+        alert(`Something went wrong: ${err?.message || "Unknown error"}`);
+      }
     }
 
     setLoading(false);
@@ -192,7 +254,7 @@ export default function Login() {
 
       <div style={{ textAlign: "center", marginTop: 20 }}>
         <h3 style={{ color: "#203a43" }}>{t("select_role")}</h3>
-        {["patient", "doctor", "admin"].map((r) => (
+        {["patient", "doctor", "pharmacy", "admin"].map((r) => (
           <button key={r} onClick={() => handleRole(r)} style={roleBtn}>
             {t(r)}
           </button>

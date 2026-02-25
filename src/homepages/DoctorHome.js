@@ -26,7 +26,7 @@ export default function DoctorHome() {
           <p>{t("view_patients_desc")}</p>
         </div>
 
-        <div style={card}>
+        <div style={card} onClick={() => navigate("/appointments")}>
           <h4>{t("appointments_title")}</h4>
           <p>{t("appointments_desc")}</p>
         </div>

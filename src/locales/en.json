@@ -6,6 +6,7 @@
 
   "patient": "Patient",
   "doctor": "Doctor",
+  "pharmacy": "Pharmacy",
   "admin": "Admin",
 
   "name": "Name",
