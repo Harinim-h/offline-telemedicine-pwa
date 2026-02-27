@@ -8,6 +8,12 @@ import {
   getPharmacyOwnerLoginCloud
 } from "../services/cloudData";
 import { hasSupabase } from "../supabaseClient";
+import {
+  getPatientUserByMobile,
+  saveOfflineCredential,
+  getOfflineCredential,
+  savePatientUserLocal
+} from "../services/localData";
 
 const DOCTOR_ACCOUNTS = [
   {
@@ -75,6 +81,15 @@ export default function Login() {
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  const completeLogin = (loggedRole, userData, route, extra = {}) => {
+    sessionStorage.setItem("role", loggedRole);
+    if (extra.patientMobile) {
+      sessionStorage.setItem("patientMobile", String(extra.patientMobile));
+    }
+    sessionStorage.setItem("userData", JSON.stringify(userData));
+    navigate(route);
+  };
+
   /* ---------------- SUBMIT ---------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -89,17 +104,16 @@ export default function Login() {
           (d) => d.email === email && d.password === password
         );
         if (doctor) {
-          sessionStorage.setItem("role", "doctor");
-          sessionStorage.setItem(
-            "userData",
-            JSON.stringify({
+          completeLogin(
+            "doctor",
+            {
               role: "doctor",
               id: doctor.id,
               name: doctor.name,
               email: doctor.email
-            })
+            },
+            "/doctor-home"
           );
-          navigate("/doctor-home");
         } else {
           alert("Invalid Doctor Credentials");
         }
@@ -115,12 +129,11 @@ export default function Login() {
           email === "admin@gmail.com" &&
           password === "admin@123"
         ) {
-          sessionStorage.setItem("role", "admin");
-          sessionStorage.setItem(
-            "userData",
-            JSON.stringify({ role: "admin", email: "admin@gmail.com" })
+          completeLogin(
+            "admin",
+            { role: "admin", email: "admin@gmail.com" },
+            "/admin-home"
           );
-          navigate("/admin-home");
         } else {
           alert("Invalid Admin Credentials");
         }
@@ -130,38 +143,48 @@ export default function Login() {
 
       /* ===== PHARMACY LOGIN (FROM SUPABASE) ===== */
       if (role === "pharmacy") {
-        if (!hasSupabase) {
-          alert("Supabase is not configured.");
-          setLoading(false);
-          return;
-        }
-        if (!navigator.onLine) {
-          alert("Internet required for pharmacy login.");
-          setLoading(false);
-          return;
-        }
-
         const email = (formData.email || "").trim().toLowerCase();
         const password = (formData.password || "").trim();
-        const pharmacy = await getPharmacyOwnerLoginCloud(email, password);
+        let pharmacy = null;
+
+        if (hasSupabase && navigator.onLine) {
+          try {
+            pharmacy = await getPharmacyOwnerLoginCloud(email, password);
+            if (pharmacy) {
+              await saveOfflineCredential("pharmacy", email, password, pharmacy);
+            }
+          } catch (error) {
+            console.warn("Cloud pharmacy login failed, trying offline cache.", error);
+          }
+        }
 
         if (!pharmacy) {
-          alert("Invalid Pharmacy Credentials");
+          const cached = await getOfflineCredential("pharmacy", email);
+          if (cached && cached.password === password) {
+            pharmacy = cached.userData;
+          }
+        }
+
+        if (!pharmacy) {
+          if (!navigator.onLine) {
+            alert("Offline pharmacy login failed. First login once with internet to cache credentials.");
+          } else {
+            alert("Invalid Pharmacy Credentials");
+          }
           setLoading(false);
           return;
         }
 
-        sessionStorage.setItem("role", "pharmacy");
-        sessionStorage.setItem(
-          "userData",
-          JSON.stringify({
+        completeLogin(
+          "pharmacy",
+          {
             role: "pharmacy",
             email: pharmacy.ownerEmail,
             pharmacyId: pharmacy.id,
             pharmacyName: pharmacy.name
-          })
+          },
+          "/pharmacy"
         );
-        navigate("/pharmacy");
         setLoading(false);
         return;
       }
@@ -175,19 +198,14 @@ export default function Login() {
       }
 
       const patientData = { ...formData, mobile: userId, role: "patient" };
-      if (!hasSupabase) {
-        alert("Supabase is not configured. Add REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.");
-        setLoading(false);
-        return;
-      }
-      if (!navigator.onLine) {
-        alert("Internet required for cloud login.");
-        setLoading(false);
-        return;
-      }
 
       // REGISTER
       if (isNewUser) {
+        if (!hasSupabase || !navigator.onLine) {
+          alert("Patient registration requires internet.");
+          setLoading(false);
+          return;
+        }
         const cloudExisting = await getPatientUserCloud(userId);
         if (cloudExisting) {
           alert("User already exists. Please login.");
@@ -195,7 +213,8 @@ export default function Login() {
           setLoading(false);
           return;
         }
-        await registerPatientUserCloud(patientData);
+        const registered = await registerPatientUserCloud(patientData);
+        await savePatientUserLocal(registered);
         alert(t("registered_success"));
         setIsNewUser(false);
         setFormData({});
@@ -204,21 +223,39 @@ export default function Login() {
       }
 
       // LOGIN
-      const loginUser = await getPatientUserCloud(userId);
+      let loginUser = null;
+
+      if (hasSupabase && navigator.onLine) {
+        try {
+          loginUser = await getPatientUserCloud(userId);
+          if (loginUser) {
+            await savePatientUserLocal(loginUser);
+          }
+        } catch (error) {
+          console.warn("Cloud patient login failed, trying offline cache.", error);
+        }
+      }
 
       if (!loginUser) {
-        alert(t("invalid_credentials"));
+        loginUser = await getPatientUserByMobile(userId);
+      }
+
+      if (!loginUser) {
+        if (!navigator.onLine) {
+          alert("Offline login failed. Register/login once online first.");
+        } else {
+          alert(t("invalid_credentials"));
+        }
         setLoading(false);
         return;
       }
 
-      sessionStorage.setItem("role", "patient");
-      sessionStorage.setItem("patientMobile", userId);
-      sessionStorage.setItem(
-        "userData",
-        JSON.stringify(loginUser)
+      completeLogin(
+        "patient",
+        loginUser,
+        "/patient-home",
+        { patientMobile: userId }
       );
-      navigate("/patient-home");
     } catch (err) {
       console.error(err);
       if (role === "pharmacy") {
@@ -249,6 +286,7 @@ export default function Login() {
           <button onClick={() => handleLanguage("en")} style={langBtn}>English</button>
           <button onClick={() => handleLanguage("ta")} style={langBtn}>தமிழ்</button>
           <button onClick={() => handleLanguage("hi")} style={langBtn}>हिन्दी</button>
+          <button onClick={() => handleLanguage("ml")} style={langBtn}>മലയാളം</button>
         </div>
       </div>
 

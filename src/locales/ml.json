@@ -1,0 +1,153 @@
+{
+  "welcome": "സ്വാഗതം",
+  "login": "ലോഗിൻ",
+  "select_role": "റോൾ തിരഞ്ഞെടുക്കുക",
+  "register": "അക്കൗണ്ട് സൃഷ്ടിക്കുക",
+
+  "patient": "രോഗി",
+  "doctor": "ഡോക്ടർ",
+  "pharmacy": "ഫാർമസി",
+  "admin": "അഡ്മിൻ",
+
+  "name": "പേര്",
+  "age": "വയസ്",
+  "mobile": "മൊബൈൽ നമ്പർ",
+  "email": "ഇമെയിൽ",
+  "phone": "ഫോൺ നമ്പർ",
+  "password": "പാസ്‌വേഡ്",
+  "condition": "രോഗാവസ്ഥ",
+
+  "already_account": "ഇതിനകം അക്കൗണ്ട് ഉണ്ടോ? സൈൻ ഇൻ ചെയ്യുക",
+  "new_user": "പുതിയയാളാണോ? അക്കൗണ്ട് സൃഷ്ടിക്കുക",
+
+  "invalid_credentials": "തെറ്റായ ക്രെഡൻഷ്യൽസ്",
+  "registered_success": "രജിസ്ട്രേഷൻ വിജയകരം",
+  "please_login": "രജിസ്ട്രേഷൻ വിജയകരം. തുടരാൻ ലോഗിൻ ചെയ്യുക.",
+
+  "save": "സേവ്",
+  "cancel": "റദ്ദാക്കുക",
+  "close": "✖",
+
+  "nav": {
+    "home": "ഹോം",
+    "appointments": "അപ്പോയിന്റ്മെന്റുകൾ",
+    "symptoms": "ലക്ഷണങ്ങൾ",
+    "health_tips": "ആരോഗ്യ കുറിപ്പുകൾ",
+    "consultation": "കൺസൾട്ടേഷൻ",
+    "doctors": "ഡോക്ടർ ലഭ്യത",
+    "profile": "പ്രൊഫൈൽ",
+    "pharmacy": "ഫാർമസി",
+    "dashboard": "ഡാഷ്ബോർഡ്",
+    "users": "ഉപയോക്താക്കൾ",
+    "settings": "ക്രമീകരണങ്ങൾ"
+  },
+
+  "pharmacy_title": " സമീപത്തെ ഫാർമസികളിലെ മരുന്ന് ലഭ്യത",
+
+  "pharmacy_search_placeholder": "മരുന്നിന്റെ പേര് തിരയുക (ഉദാ: പരാസിറ്റമോൾ)",
+
+  "pharmacy_helper": "സമീപത്തെ ഫാർമസികളിൽ ലഭ്യത പരിശോധിക്കാൻ മരുന്നിന്റെ പേര് നൽകുക",
+
+  "available": " ലഭ്യമാണ്",
+  "out_of_stock": " സ്റ്റോക്ക് ഇല്ല",
+  "not_available": " ഈ ഫാർമസിയിൽ മരുന്ന് ലഭ്യമല്ല",
+
+  "units": "യൂണിറ്റുകൾ",
+
+  "book_appointment_title": "അപ്പോയിന്റ്മെന്റ് ബുക്ക് ചെയ്യുക",
+  "book_appointment_desc": "ഡോക്ടർ സന്ദർശനം ഷെഡ്യൂൾ ചെയ്യുക",
+
+  "symptom_checker_title": "ലക്ഷണ പരിശോധന",
+  "symptom_checker_desc": "ആരോഗ്യ ലക്ഷണങ്ങൾ പരിശോധിക്കുക",
+
+  "consultation_title": " കൺസൾട്ടേഷൻ",
+  "consultation_desc": "ഓൺലൈൻ കൺസൾട്ടേഷൻ",
+  "video_call_card_title": " വീഡിയോ കോൾ",
+  "video_call_card_desc": "ലൈവ് കൺസൾട്ടേഷൻ ആരംഭിക്കുക",
+
+  "doctors_title": " ഡോക്ടർമാർ",
+  "doctors_desc": "ലഭ്യമായ ഡോക്ടർമാർ",
+
+  "your_appointments": "നിങ്ങളുടെ അപ്പോയിന്റ്മെന്റുകൾ",
+  "appointment_1": "12 ഫെബ് 2026 | 10:30 AM | ഡോ. കുമാർ",
+  "appointment_2": "18 ഫെബ് 2026 | 04:00 PM | ഡോ. അഞ്ജലി",
+
+  "health_tips_title": "ആരോഗ്യ കുറിപ്പുകൾ",
+  "health_tip_1": " ദിവസേന മതിയായ വെള്ളം കുടിക്കുക",
+  "health_tip_2": " ദിവസേന 30 മിനിറ്റ് നടക്കുക",
+
+  "welcome_doctor": "സ്വാഗതം ഡോക്ടർ",
+
+  "add_patient_title": " രോഗിയെ ചേർക്കുക",
+  "add_patient_desc": "പുതിയ രോഗിയുടെ വിവരങ്ങൾ ചേർക്കുക",
+
+  "view_patients_title": " രോഗി പട്ടിക",
+  "view_patients_desc": "എല്ലാ രോഗികളുടെയും രേഖകൾ കാണുക",
+
+  "appointments_title": " അപ്പോയിന്റ്മെന്റുകൾ",
+  "appointments_desc": "ഇന്നത്തെ നിശ്ചിത സന്ദർശനങ്ങൾ",
+
+  "prescriptions_title": " മരുന്ന് കുറിപ്പുകൾ",
+  "prescriptions_desc": "മരുന്ന് കുറിപ്പുകൾ നിയന്ത്രിക്കുക",
+
+  "patient_name": "രോഗിയുടെ പേര്",
+  "patient_age": "വയസ്",
+  "patient_condition": "ആരോഗ്യാവസ്ഥ",
+  "save_patient": "രോഗിയെ സേവ് ചെയ്യുക",
+  "patient_added_success": "രോഗിയെ വിജയകരമായി ചേർത്തു",
+
+  "patient_list": "രോഗി പട്ടിക",
+  "no_patients": "ഇതുവരെ രോഗികളില്ല",
+
+  "admin_dashboard": "അഡ്മിൻ ഡാഷ്ബോർഡ്",
+
+  "admin_users_title": " ഉപയോക്താക്കൾ",
+  "admin_users_desc": "രോഗികളും ഡോക്ടർമാരും നിയന്ത്രിക്കുക",
+
+  "admin_appointments_title": " അപ്പോയിന്റ്മെന്റുകൾ",
+  "admin_appointments_desc": "ബുക്ക് ചെയ്ത എല്ലാ അപ്പോയിന്റ്മെന്റുകളും",
+
+  "admin_doctors_title": " ഡോക്ടർമാർ",
+  "admin_doctors_desc": "ഡോക്ടർ ലഭ്യതയും പ്രൊഫൈലുകളും",
+
+  "admin_settings_title": " ക്രമീകരണങ്ങൾ",
+  "admin_settings_desc": "സിസ്റ്റം കോൺഫിഗറേഷൻ",
+
+  "system_overview": "സിസ്റ്റം അവലോകനം",
+
+  "total_patients": "മൊത്തം രോഗികൾ: 128",
+  "total_doctors": " മൊത്തം ഡോക്ടർമാർ: 14",
+  "appointments_today": " ഇന്നത്തെ അപ്പോയിന്റ്മെന്റുകൾ: 22",
+
+  "admin_actions": "അഡ്മിൻ പ്രവർത്തനങ്ങൾ",
+  "approve_doctors": "പുതിയ ഡോക്ടർമാരെ അംഗീകരിക്കുക",
+  "monitor_logs": " അപ്പോയിന്റ്മെന്റ് ലോഗുകൾ നിരീക്ഷിക്കുക",
+  "update_guidelines": "ആരോഗ്യ മാർഗ്ഗനിർദേശങ്ങൾ പുതുക്കുക",
+  "video_call_title": "വീഡിയോ കൺസൾട്ടേഷൻ",
+  "video_call_online": "ഓൺലൈൻ",
+  "video_call_offline": "ഓഫ്‌ലൈൻ",
+  "video_call_doctor_hint": "ഒരു മുറി ആരംഭിച്ച് കോഡ് നിങ്ങളുടെ രോഗിയുമായി പങ്കിടുക.",
+  "video_call_patient_hint": "കോളിൽ ചേരാൻ നിങ്ങളുടെ ഡോക്ടറുടെ റൂം കോഡ് നൽകുക.",
+  "video_call_room_code": "കൺസൾട്ടേഷൻ റൂം കോഡ്",
+  "video_call_generate": "കോഡ് സൃഷ്ടിക്കുക",
+  "video_call_signed_as": "ഇങ്ങിനെ സൈൻ ഇൻ ചെയ്തു",
+  "video_call_you": "നിങ്ങളുടെ വീഡിയോ",
+  "video_call_remote": "ഡോക്ടർ / രോഗി",
+  "video_call_remote_idle": "ലൈവ് വീഡിയോ കൺസൾട്ടേഷൻ ആരംഭിക്കാൻ മുറിയിൽ ചേരുക.",
+  "video_call_join": "കോളിൽ ചേരുക",
+  "video_call_connecting": "കണക്റ്റ് ചെയ്യുന്നു...",
+  "video_call_waiting": "കണക്റ്റ് ചെയ്തു. മറ്റേ പങ്കാളിക്കായി കാത്തിരിക്കുന്നു...",
+  "video_call_connected": "കണക്റ്റ് ചെയ്തു",
+  "video_call_mute": "മൈക്ക് മ്യൂട്ട്",
+  "video_call_unmute": "മൈക്ക് അൺമ്യൂട്ട്",
+  "video_call_camera_off": "ക്യാമറ ഓഫ്",
+  "video_call_camera_on": "ക്യാമറ ഓൺ",
+  "video_call_end": "കാൾ അവസാനിപ്പിക്കുക",
+  "video_call_ended": "കാൾ അവസാനിച്ചു. നിങ്ങൾക്ക് ഏതാനും സമയത്ത് വീണ്ടും ചേരാം.",
+  "video_call_enter_room": "മുൻപ് റൂം കോഡ് നൽകുക അല്ലെങ്കിൽ സൃഷ്ടിക്കുക.",
+  "video_call_room_not_ready": "മുറി തയ്യാറല്ല. ആദ്യം ഡോക്ടറോട് ആരംഭിക്കാൻ പറയുക.",
+  "video_call_start_error": "കാൾ ആരംഭിക്കാൻ കഴിഞ്ഞില്ല.",
+  "video_call_not_supported": "ഈ ബ്രൗസർ വീഡിയോ കോളിനെ പിന്തുണയ്ക്കുന്നില്ല.",
+  "video_call_permission_error": "ക്യാമറ/മൈക്രോഫോൺ അനുമതി നിരസിച്ചു. ദയവായി അനുമതി നൽകുക.",
+  "video_call_room_placeholder": "TM-AB12CD"
+}

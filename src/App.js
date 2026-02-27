@@ -10,6 +10,7 @@ import PharmacyAvailability from "./pages/PharmacyAvailability";
 import Consultation from "./pages/Consultation";
 import Appointments from "./pages/Appointments";
 import Chat from "./pages/Chat";
+import Symptoms from "./pages/Symptoms";
 import PatientHome from "./homepages/PatientHome";
 import DoctorHome from "./homepages/DoctorHome";
 import AdminHome from "./homepages/AdminHome";
@@ -35,6 +36,7 @@ function App() {
 
         <Route path="/pharmacy" element={<PharmacyAvailability />} />
         <Route path="/appointments" element={<Appointments />} />
+        <Route path="/symptoms" element={<Symptoms />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/consult" element={<Consultation />} />
         <Route path="/patient-home" element={<PatientHome />} />

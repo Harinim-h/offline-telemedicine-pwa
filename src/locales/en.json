@@ -137,6 +137,7 @@
   "video_call_join": "Join Call",
   "video_call_connecting": "Connecting...",
   "video_call_waiting": "Connected. Waiting for the other participant...",
+  "video_call_connected": "Connected",
   "video_call_mute": "Mute Mic",
   "video_call_unmute": "Unmute Mic",
   "video_call_camera_off": "Camera Off",
@@ -144,6 +145,9 @@
   "video_call_end": "End Call",
   "video_call_ended": "Call ended. You can join again anytime.",
   "video_call_enter_room": "Enter or generate a room code first.",
+  "video_call_room_not_ready": "Room not ready. Ask doctor to start first.",
+  "video_call_start_error": "Unable to start call.",
   "video_call_not_supported": "This browser does not support video calls.",
-  "video_call_permission_error": "Camera/microphone access denied. Please allow permissions."
+  "video_call_permission_error": "Camera/microphone access denied. Please allow permissions.",
+  "video_call_room_placeholder": "TM-AB12CD"
 }

@@ -142,7 +142,7 @@ export default function Consultation() {
         remoteStream.addTrack(track);
       });
       setRemoteJoined(true);
-      setStatus("Connected");
+      setStatus(t("video_call_connected"));
     };
 
     connection.onicecandidate = (event) => {
@@ -258,7 +258,7 @@ export default function Consultation() {
         const room = readRoom(cleanCode);
         if (!room?.offer || !room?.sessionId) {
           teardownCall(false);
-          setStatus("Room not ready. Ask doctor to start first.");
+          setStatus(t("video_call_room_not_ready"));
           return;
         }
 
@@ -284,7 +284,7 @@ export default function Consultation() {
       setStatus(t("video_call_waiting"));
     } catch {
       teardownCall(false);
-      setStatus("Unable to start call.");
+      setStatus(t("video_call_start_error"));
     }
   }
 
@@ -372,7 +372,7 @@ export default function Consultation() {
           <input
             value={roomCode}
             onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-            placeholder="TM-AB12CD"
+            placeholder={t("video_call_room_placeholder")}
             style={styles.input}
           />
           <button style={styles.secondaryBtn} onClick={generateRoomCode}>

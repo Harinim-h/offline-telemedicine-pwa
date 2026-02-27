@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import OfflineSymptomChecker from "../components/OfflineSymptomChecker";
 
 export default function PatientHome() {
   const user = JSON.parse(sessionStorage.getItem("userData"));
@@ -10,7 +11,7 @@ export default function PatientHome() {
   return (
     <div style={page}>
       <h2 style={title}>
-        {t("welcome")}, {user?.name || t("patient")} 
+        {t("welcome")}, {user?.name || t("patient")}
       </h2>
 
       <div style={grid}>
@@ -22,6 +23,7 @@ export default function PatientHome() {
         <Card
           title={t("symptom_checker_title")}
           desc={t("symptom_checker_desc")}
+          onClick={() => navigate("/symptoms")}
         />
         <Card
           title={t("consultation_title")}
@@ -44,11 +46,13 @@ export default function PatientHome() {
         <ListItem text={t("health_tip_1")} />
         <ListItem text={t("health_tip_2")} />
       </Section>
+
+      <Section title="Offline Symptom Checker AI">
+        <OfflineSymptomChecker />
+      </Section>
     </div>
   );
 }
-
-/* ---------- Reusable Components ---------- */
 
 function Card({ title, desc, onClick }) {
   return (
@@ -71,8 +75,6 @@ function Section({ title, children }) {
 function ListItem({ text }) {
   return <div style={listItem}>{text}</div>;
 }
-
-/* ---------- Styles (Teal + Dark Theme) ---------- */
 
 const page = {
   padding: 24,

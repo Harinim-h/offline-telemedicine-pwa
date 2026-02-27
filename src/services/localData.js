@@ -1,7 +1,7 @@
 import { openDB } from "idb";
 
 const DB_NAME = "telemed-offline-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function nowTs() {
   return Date.now();
@@ -38,6 +38,15 @@ const dbPromise = openDB(DB_NAME, DB_VERSION, {
       });
       messages.createIndex("appointmentId", "appointmentId");
       messages.createIndex("createdAt", "createdAt");
+    }
+
+    if (!db.objectStoreNames.contains("authCache")) {
+      const authCache = db.createObjectStore("authCache", {
+        keyPath: "key"
+      });
+      authCache.createIndex("role", "role");
+      authCache.createIndex("identifier", "identifier");
+      authCache.createIndex("updatedAt", "updatedAt");
     }
   }
 });
@@ -100,10 +109,17 @@ export async function getAllPatientRecords() {
 
 export async function createAppointment(appointment) {
   const db = await dbPromise;
+  const createdAt = Number(appointment?.createdAt || 0) || nowTs();
+  const updatedAt = Number(appointment?.updatedAt || 0) || nowTs();
   return db.add("appointments", {
     ...appointment,
-    createdAt: nowTs(),
-    updatedAt: nowTs()
+    cloudId:
+      appointment?.cloudId === undefined || appointment?.cloudId === null
+        ? null
+        : appointment.cloudId,
+    syncStatus: appointment?.syncStatus || "synced",
+    createdAt,
+    updatedAt
   });
 }
 
@@ -157,4 +173,34 @@ export async function getChatMessages(appointmentId) {
   return all
     .filter((m) => String(m.appointmentId) === String(appointmentId))
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+
+function authKey(role, identifier) {
+  return `${String(role || "").trim().toLowerCase()}:${String(identifier || "")
+    .trim()
+    .toLowerCase()}`;
+}
+
+export async function saveOfflineCredential(role, identifier, password, userData) {
+  const db = await dbPromise;
+  const normalizedRole = String(role || "").trim().toLowerCase();
+  const normalizedIdentifier = String(identifier || "").trim().toLowerCase();
+  const key = authKey(normalizedRole, normalizedIdentifier);
+  if (!normalizedRole || !normalizedIdentifier || !password) {
+    throw new Error("offline-auth-data-required");
+  }
+
+  await db.put("authCache", {
+    key,
+    role: normalizedRole,
+    identifier: normalizedIdentifier,
+    password: String(password).trim(),
+    userData: userData || null,
+    updatedAt: nowTs()
+  });
+}
+
+export async function getOfflineCredential(role, identifier) {
+  const db = await dbPromise;
+  return db.get("authCache", authKey(role, identifier));
 }
