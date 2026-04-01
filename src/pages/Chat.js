@@ -64,20 +64,17 @@ export default function Chat() {
 
     async function translateIncomingMessages() {
       const nextTranslations = {};
-      const targetLanguage =
-        role === "doctor"
-          ? "en"
-          : String(i18n.language || "en").split("-")[0].toLowerCase();
+      const storedLang =
+        sessionStorage.getItem("userLanguage") ||
+        localStorage.getItem("language");
+      const targetLanguage = String(storedLang || i18n.language || "en")
+        .split("-")[0]
+        .toLowerCase();
 
       for (const message of messages) {
         const originalText = String(message?.text || "").trim();
         if (!originalText) {
           nextTranslations[message.id] = "";
-          continue;
-        }
-
-        if (message.senderRole === role) {
-          nextTranslations[message.id] = originalText;
           continue;
         }
 

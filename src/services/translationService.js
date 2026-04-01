@@ -9,6 +9,7 @@ const LANGUAGE_NAMES = {
 };
 
 const translationCache = new Map();
+const REQUEST_TIMEOUT_MS = 6000;
 
 function getOpenAiKey() {
   return process.env.REACT_APP_OPENAI_API_KEY || "";
@@ -18,7 +19,7 @@ function getLibreTranslateUrl() {
   return (
     process.env.REACT_APP_LIBRETRANSLATE_URL ||
     process.env.LIBRETRANSLATE_URL ||
-    ""
+    "https://libretranslate.de/translate"
   );
 }
 
@@ -35,16 +36,44 @@ function normalizeLang(lang) {
   return LANGUAGE_NAMES[value] ? value : value.split("-")[0];
 }
 
+function detectSourceLang(text) {
+  const raw = String(text || "");
+  if (/[\u0B80-\u0BFF]/.test(raw)) return "ta";
+  if (/[\u0D00-\u0D7F]/.test(raw)) return "ml";
+  if (/[\u0900-\u097F]/.test(raw)) return "hi";
+  return "en";
+}
+
 function cacheKey(text, targetLanguage) {
   return `${normalizeLang(targetLanguage)}::${String(text || "").trim()}`;
 }
 
-async function translateWithLibreTranslate(text, targetLanguage) {
-  const url = getLibreTranslateUrl();
+function getLibreTranslateCandidates() {
+  const primary = getLibreTranslateUrl();
+  const fallbacks = [
+    "https://libretranslate.de/translate",
+    "https://translate.astian.org/translate"
+  ];
+
+  return [primary, ...fallbacks].filter(Boolean);
+}
+
+async function fetchWithTimeout(url, options) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function translateWithLibreTranslate(text, targetLanguage, sourceLanguage, url) {
   if (!url) throw new Error("libretranslate-url-missing");
 
   const body = {
     q: text,
+    source: sourceLanguage || "auto",
     target: normalizeLang(targetLanguage),
     format: "text"
   };
@@ -52,7 +81,7 @@ async function translateWithLibreTranslate(text, targetLanguage) {
   const apiKey = getLibreTranslateKey();
   if (apiKey) body.api_key = apiKey;
 
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -108,11 +137,51 @@ async function translateWithOpenAi(text, targetLanguage) {
   return String(data?.output_text || "").trim();
 }
 
+async function translateWithGoogle(text, targetLanguage) {
+  const target = normalizeLang(targetLanguage);
+  const source = detectSourceLang(text);
+  const query = encodeURIComponent(text);
+  const url =
+    `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(source)}&tl=${encodeURIComponent(target)}&dt=t&q=${query}`;
+
+  const response = await fetchWithTimeout(url, { method: "GET" });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`google-translate-error:${response.status}:${errorText}`);
+  }
+
+  const data = await response.json();
+  const parts = Array.isArray(data?.[0]) ? data[0] : [];
+  const translated = parts.map((p) => p?.[0]).filter(Boolean).join("");
+  return String(translated || "").trim();
+}
+
+async function translateWithMyMemory(text, targetLanguage) {
+  const source = detectSourceLang(text);
+  const target = normalizeLang(targetLanguage);
+  if (source === target) return String(text || "").trim();
+  const query = encodeURIComponent(text);
+  const response = await fetchWithTimeout(
+    `https://api.mymemory.translated.net/get?q=${query}&langpair=${source}|${target}`
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`mymemory-error:${response.status}:${errorText}`);
+  }
+
+  const data = await response.json();
+  return String(data?.responseData?.translatedText || "").trim();
+}
+
 export async function translateChatText(text, targetLanguage) {
   const rawText = String(text || "").trim();
   const normalizedTarget = normalizeLang(targetLanguage);
+  const source = detectSourceLang(rawText);
 
   if (!rawText) return "";
+  if (!navigator.onLine) return rawText;
+  if (source === normalizedTarget) return rawText;
   if (normalizedTarget === "en" && /^[\x00-\x7F\s.,!?'"():;/\\-]+$/.test(rawText)) {
     return rawText;
   }
@@ -123,19 +192,61 @@ export async function translateChatText(text, targetLanguage) {
   }
 
   try {
-    const translated = await translateWithLibreTranslate(rawText, normalizedTarget);
-    const finalText = translated || rawText;
-    translationCache.set(key, finalText);
-    return finalText;
-  } catch {
-    try {
-      const translated = await translateWithOpenAi(rawText, normalizedTarget);
-      const finalText = translated || rawText;
-      translationCache.set(key, finalText);
-      return finalText;
-    } catch {
-      translationCache.set(key, rawText);
-      return rawText;
+    const candidates = getLibreTranslateCandidates();
+    let translated = "";
+
+    for (const url of candidates) {
+      try {
+        translated = await translateWithLibreTranslate(
+          rawText,
+          normalizedTarget,
+          source,
+          url
+        );
+        if (translated) break;
+      } catch {
+        // try next endpoint
+      }
     }
+
+    if (translated) {
+      translationCache.set(key, translated);
+      return translated;
+    }
+  } catch {
+    // fall through to OpenAI
   }
+
+  try {
+    const translated = await translateWithMyMemory(rawText, normalizedTarget);
+    if (translated && translated !== rawText) {
+      translationCache.set(key, translated);
+      return translated;
+    }
+  } catch {
+    // fall through to next provider
+  }
+
+  try {
+    const translated = await translateWithGoogle(rawText, normalizedTarget);
+    if (translated && translated !== rawText) {
+      translationCache.set(key, translated);
+      return translated;
+    }
+  } catch {
+    // fall through to OpenAI
+  }
+
+  try {
+    const translated = await translateWithOpenAi(rawText, normalizedTarget);
+    if (translated) {
+      translationCache.set(key, translated);
+      return translated;
+    }
+  } catch {
+    // ignore
+  }
+
+  // Do not cache failures so we can retry on the next refresh.
+  return rawText;
 }

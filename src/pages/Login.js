@@ -90,6 +90,7 @@ export default function Login() {
   const handleLanguage = (lang) => {
     i18n.changeLanguage(lang);
     localStorage.setItem("language", lang);
+    sessionStorage.setItem("userLanguage", lang);
   };
 
   const handleRole = (r) => {
@@ -114,6 +115,8 @@ export default function Login() {
 
   const completeLogin = (loggedRole, userData, route, extra = {}) => {
     sessionStorage.setItem("role", loggedRole);
+    const activeLang = String(i18n.language || localStorage.getItem("language") || "en");
+    sessionStorage.setItem("userLanguage", activeLang);
     if (extra.patientMobile) {
       sessionStorage.setItem("patientMobile", String(extra.patientMobile));
     }
