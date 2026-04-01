@@ -11,9 +11,14 @@ import Consultation from "./pages/Consultation";
 import Appointments from "./pages/Appointments";
 import Chat from "./pages/Chat";
 import Symptoms from "./pages/Symptoms";
+import Profile from "./pages/Profile";
+import DoctorAvailability from "./pages/DoctorAvailability";
 import PatientHome from "./homepages/PatientHome";
 import DoctorHome from "./homepages/DoctorHome";
 import AdminHome from "./homepages/AdminHome";
+import DoctorAnalytics from "./pages/DoctorAnalytics";
+import AdminAnalytics from "./pages/AdminAnalytics";
+import VoiceNavigator from "./components/VoiceNavigator";
 
 function App() {
   const location = useLocation();
@@ -37,15 +42,20 @@ function App() {
         <Route path="/pharmacy" element={<PharmacyAvailability />} />
         <Route path="/appointments" element={<Appointments />} />
         <Route path="/symptoms" element={<Symptoms />} />
+        <Route path="/doctor-availability" element={<DoctorAvailability />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/consult" element={<Consultation />} />
         <Route path="/patient-home" element={<PatientHome />} />
         <Route path="/doctor-home" element={<DoctorHome />} />
         <Route path="/admin-home" element={<AdminHome />} />
+        <Route path="/doctor-analytics" element={<DoctorAnalytics />} />
+        <Route path="/admin-analytics" element={<AdminAnalytics />} />
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
+      {!hideNavbar && <VoiceNavigator />}
     </>
   );
 }
