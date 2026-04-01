@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { dbPromise } from "../utils/db";
 
 export default function AppointmentForm() {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [reason, setReason] = useState("");
@@ -16,7 +18,7 @@ export default function AppointmentForm() {
       synced: false,
     });
 
-    alert("Appointment saved offline ");
+    alert(t("appointment_form_saved_offline"));
     setName("");
     setDate("");
     setReason("");
@@ -24,10 +26,10 @@ export default function AppointmentForm() {
 
   return (
     <div style={{ padding: 16 }}>
-      <h3>Book Appointment</h3>
+      <h3>{t("appointment_form_title")}</h3>
 
       <input
-        placeholder="Patient Name"
+        placeholder={t("patient_name")}
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
@@ -43,7 +45,7 @@ export default function AppointmentForm() {
       <br /><br />
 
       <textarea
-        placeholder="Reason"
+        placeholder={t("appointment_list_reason")}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
       />
@@ -51,7 +53,7 @@ export default function AppointmentForm() {
       <br /><br />
 
       <button onClick={saveAppointment}>
-        Book Appointment
+        {t("appointment_form_title")}
       </button>
     </div>
   );

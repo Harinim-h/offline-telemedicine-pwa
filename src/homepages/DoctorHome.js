@@ -1,14 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import PatientForm from "../components/PatientForm";
-import PatientList from "../components/PatientList";
 
 export default function DoctorHome() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [showAdd, setShowAdd] = useState(false);
-  const [showList, setShowList] = useState(false);
 
   return (
     <div style={page}>
@@ -16,14 +12,9 @@ export default function DoctorHome() {
 
       {/* Shortcut Cards */}
       <div style={grid}>
-        <div style={card} onClick={() => setShowAdd(true)}>
+        <div style={card} onClick={() => navigate("/doctor/add-patient")}>
           <h4>{t("add_patient_title")}</h4>
           <p>{t("add_patient_desc")}</p>
-        </div>
-
-        <div style={card} onClick={() => setShowList(true)}>
-          <h4>{t("view_patients_title")}</h4>
-          <p>{t("view_patients_desc")}</p>
         </div>
 
         <div style={card} onClick={() => navigate("/appointments")}>
@@ -31,39 +22,25 @@ export default function DoctorHome() {
           <p>{t("appointments_desc")}</p>
         </div>
 
+        <div style={card} onClick={() => navigate("/doctor/patients")}>
+          <h4>{t("view_patients_title")}</h4>
+          <p>{t("view_patients_desc")}</p>
+        </div>
+
+        <div style={card} onClick={() => navigate("/pharmacy")}>
+          <h4>{t("pharmacy")}</h4>
+          <p>{t("pharmacy_title")}</p>
+        </div>
+
+        <div style={card} onClick={() => navigate("/doctor-analytics")}>
+          <h4>{t("home_analytics_title")}</h4>
+          <p>{t("home_analytics_desc")}</p>
+        </div>
+
         <div style={card} onClick={() => navigate("/consult")}>
           <h4>{t("video_call_card_title")}</h4>
           <p>{t("video_call_card_desc")}</p>
         </div>
-      </div>
-
-      {/* Add Patient Modal */}
-      {showAdd && (
-        <Modal onClose={() => setShowAdd(false)}>
-          <PatientForm onClose={() => setShowAdd(false)} />
-        </Modal>
-      )}
-
-      {/* Patient List Modal */}
-      {showList && (
-        <Modal onClose={() => setShowList(false)}>
-          <PatientList />
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-/* ---------- Modal ---------- */
-function Modal({ children, onClose }) {
-  const { t } = useTranslation();
-  return (
-    <div style={overlay}>
-      <div style={modal}>
-        <button style={closeBtn} onClick={onClose}>
-          {t("close")}
-        </button>
-        {children}
       </div>
     </div>
   );
@@ -94,37 +71,5 @@ const card = {
   padding: 22,
   borderRadius: 14,
   boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
-  cursor: "pointer"
-};
-
-const overlay = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100%",
-  height: "100%",
-  background: "rgba(0,0,0,0.5)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 1000
-};
-
-const modal = {
-  background: "#ffffff",
-  borderRadius: 14,
-  width: "90%",
-  maxWidth: "600px",
-  padding: 20,
-  position: "relative"
-};
-
-const closeBtn = {
-  position: "absolute",
-  top: 10,
-  right: 14,
-  border: "none",
-  background: "transparent",
-  fontSize: 18,
   cursor: "pointer"
 };

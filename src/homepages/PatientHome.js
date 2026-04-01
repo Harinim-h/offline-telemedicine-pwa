@@ -1,116 +1,195 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import OfflineSymptomChecker from "../components/OfflineSymptomChecker";
+import SpeakableText from "../components/SpeakableText";
+
+function getCardSpeakText(label, description) {
+  const cleanLabel = String(label || "").trim();
+  const cleanDescription = String(description || "").trim();
+
+  if (!cleanDescription) return cleanLabel;
+
+  const labelLower = cleanLabel.toLowerCase();
+  const descriptionLower = cleanDescription.toLowerCase();
+
+  if (descriptionLower === labelLower) {
+    return cleanDescription;
+  }
+
+  if (descriptionLower.startsWith(`${labelLower}.`)) {
+    return cleanDescription.slice(cleanLabel.length + 1).trim();
+  }
+
+  if (descriptionLower.startsWith(`${labelLower} `)) {
+    return cleanDescription.slice(cleanLabel.length).trim();
+  }
+
+  return cleanDescription;
+}
 
 export default function PatientHome() {
   const user = JSON.parse(sessionStorage.getItem("userData"));
   const { t } = useTranslation();
   const navigate = useNavigate();
 
+  const quickActions = [
+    {
+      icon: "📅",
+      label: t("nav.appointments"),
+      description: t("book_appointment_desc"),
+      route: "/appointments"
+    },
+    {
+      icon: "🩺",
+      label: t("nav.symptoms"),
+      description: t("symptom_checker_desc"),
+      route: "/symptoms"
+    },
+    {
+      icon: "🎥",
+      label: t("nav.consultation"),
+      description: t("consultation_desc"),
+      route: "/consult"
+    },
+    {
+      icon: "👨‍⚕️",
+      label: t("nav.doctors"),
+      description: t("doctors_desc"),
+      route: "/doctor-availability"
+    },
+    {
+      icon: "👤",
+      label: t("nav.profile"),
+      description: t("profile_title"),
+      route: "/profile"
+    }
+  ];
+
   return (
     <div style={page}>
-      <h2 style={title}>
-        {t("welcome")}, {user?.name || t("patient")}
-      </h2>
+      <SpeakableText
+        as="h2"
+        text={`${t("welcome")}, ${user?.name || t("patient")}`}
+        style={title}
+        wrapperStyle={{ display: "flex", marginBottom: 6 }}
+      />
+      <SpeakableText
+        as="p"
+        text={t("patient_home_hint")}
+        style={hint}
+        wrapperStyle={{ display: "flex", marginBottom: 20 }}
+      />
 
-      <div style={grid}>
-        <Card
-          title={t("book_appointment_title")}
-          desc={t("book_appointment_desc")}
-          onClick={() => navigate("/appointments")}
-        />
-        <Card
-          title={t("symptom_checker_title")}
-          desc={t("symptom_checker_desc")}
-          onClick={() => navigate("/symptoms")}
-        />
-        <Card
-          title={t("consultation_title")}
-          desc={t("consultation_desc")}
-          onClick={() => navigate("/consult")}
-        />
-        <Card
-          title={t("doctors_title")}
-          desc={t("doctors_desc")}
-          onClick={() => navigate("/appointments")}
-        />
+      <div style={actionGrid}>
+        {quickActions.map((item) => (
+          <div key={item.route} style={actionCard}>
+            <button
+              type="button"
+              onClick={() => navigate(item.route)}
+              style={actionButton}
+              aria-label={`${item.label}. ${getCardSpeakText(item.label, item.description)}`}
+            >
+              <span style={actionIcon} aria-hidden="true">
+                {item.icon}
+              </span>
+              <span style={actionLabel}>{item.label}</span>
+            </button>
+            <SpeakableText
+              text={getCardSpeakText(item.label, item.description)}
+              wrapperStyle={actionSpeakWrap}
+              buttonStyle={actionSpeakButton}
+            />
+          </div>
+        ))}
       </div>
-
-      <Section title={t("your_appointments")}>
-        <ListItem text={t("appointment_1")} />
-        <ListItem text={t("appointment_2")} />
-      </Section>
-
-      <Section title={t("health_tips")}>
-        <ListItem text={t("health_tip_1")} />
-        <ListItem text={t("health_tip_2")} />
-      </Section>
-
-      <Section title="Offline Symptom Checker AI">
-        <OfflineSymptomChecker />
-      </Section>
     </div>
   );
-}
-
-function Card({ title, desc, onClick }) {
-  return (
-    <div style={card} onClick={onClick}>
-      <h4>{title}</h4>
-      <p style={{ opacity: 0.85 }}>{desc}</p>
-    </div>
-  );
-}
-
-function Section({ title, children }) {
-  return (
-    <div style={{ marginTop: 30 }}>
-      <h3 style={sectionTitle}>{title}</h3>
-      {children}
-    </div>
-  );
-}
-
-function ListItem({ text }) {
-  return <div style={listItem}>{text}</div>;
 }
 
 const page = {
-  padding: 24,
+  padding: 18,
   minHeight: "100vh",
-  background: "#e0f7fa"
+  background:
+    "radial-gradient(circle at top left, #dff7f3 0%, #e6f7ff 42%, #eef2ff 100%)"
 };
 
 const title = {
   color: "#0f2027",
-  marginBottom: 20
+  marginBottom: 6,
+  fontSize: 34
 };
 
-const grid = {
+const hint = {
+  marginTop: 0,
+  marginBottom: 20,
+  fontSize: 20,
+  color: "#164e63",
+  fontWeight: 600
+};
+
+const actionGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: 16
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 14
 };
 
-const card = {
-  background: "linear-gradient(135deg, #203a43, #2c5364)",
-  color: "#ffffff",
-  padding: 20,
-  borderRadius: 14,
-  boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
-  cursor: "pointer"
+const actionCard = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "stretch",
+  gap: 8
 };
 
-const sectionTitle = {
-  color: "#203a43",
-  marginBottom: 10
-};
-
-const listItem = {
+const actionButton = {
+  color: "#1b1b1b",
+  border: "1px solid #d3dde2",
+  borderRadius: 22,
+  minHeight: 170,
+  width: "100%",
   background: "#ffffff",
-  padding: 12,
-  borderRadius: 10,
-  marginBottom: 8,
-  boxShadow: "0 4px 10px rgba(0,0,0,0.1)"
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 10,
+  boxShadow: "0 8px 14px rgba(0,0,0,0.1)",
+  cursor: "pointer",
+  padding: 16,
+  textAlign: "center"
+};
+
+const actionIcon = {
+  width: 62,
+  height: 62,
+  borderRadius: 999,
+  border: "2px solid #9bb2bf",
+  display: "grid",
+  placeItems: "center",
+  fontSize: 32,
+  fontWeight: 700,
+  lineHeight: 1
+};
+
+const actionLabel = {
+  fontSize: 24,
+  fontWeight: 800,
+  letterSpacing: 0.3,
+  textAlign: "center"
+};
+
+const actionSpeakWrap = {
+  display: "flex",
+  justifyContent: "space-between",
+  width: "100%",
+  background: "rgba(255,255,255,0.72)",
+  border: "1px solid #d3dde2",
+  borderRadius: 14,
+  padding: "8px 10px"
+};
+
+const actionSpeakButton = {
+  width: 38,
+  height: 38,
+  fontSize: 16,
+  flexShrink: 0
 };

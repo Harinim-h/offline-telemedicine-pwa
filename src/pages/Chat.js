@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { addChatMessageCloud, getChatMessagesCloud } from "../services/cloudData";
+import { addChatMessage, getChatMessages } from "../services/localData";
 import { hasSupabase } from "../supabaseClient";
+import SpeakableText from "../components/SpeakableText";
+import { getSpeechLang } from "../utils/speech";
+import { translateChatText } from "../services/translationService";
 
 export default function Chat() {
+  const { t, i18n } = useTranslation();
   const [searchParams] = useSearchParams();
   const appointmentId = searchParams.get("appointmentId") || "";
   const role = sessionStorage.getItem("role") || "patient";
@@ -16,7 +22,9 @@ export default function Chat() {
   }, []);
 
   const [messages, setMessages] = useState([]);
+  const [translatedMessages, setTranslatedMessages] = useState({});
   const [text, setText] = useState("");
+  const [isListening, setIsListening] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const shouldUseCloud = hasSupabase && isOnline;
 
@@ -36,11 +44,9 @@ export default function Chat() {
     let active = true;
 
     async function loadMessages() {
-      if (!shouldUseCloud) {
-        setMessages([]);
-        return;
-      }
-      const data = await getChatMessagesCloud(appointmentId);
+      const data = shouldUseCloud
+        ? await getChatMessagesCloud(appointmentId)
+        : await getChatMessages(appointmentId);
       if (!active) return;
       setMessages(data);
     }
@@ -53,53 +59,154 @@ export default function Chat() {
     };
   }, [appointmentId, shouldUseCloud]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function translateIncomingMessages() {
+      const nextTranslations = {};
+      const targetLanguage =
+        role === "doctor"
+          ? "en"
+          : String(i18n.language || "en").split("-")[0].toLowerCase();
+
+      for (const message of messages) {
+        const originalText = String(message?.text || "").trim();
+        if (!originalText) {
+          nextTranslations[message.id] = "";
+          continue;
+        }
+
+        if (message.senderRole === role) {
+          nextTranslations[message.id] = originalText;
+          continue;
+        }
+
+        nextTranslations[message.id] = await translateChatText(
+          originalText,
+          targetLanguage
+        );
+      }
+
+      if (!active) return;
+      setTranslatedMessages(nextTranslations);
+    }
+
+    translateIncomingMessages();
+
+    return () => {
+      active = false;
+    };
+  }, [i18n.language, messages, role]);
+
   async function sendMessage(e) {
     e.preventDefault();
     if (!appointmentId || !text.trim()) return;
 
     try {
-      if (!shouldUseCloud) {
-        alert("Supabase cloud is required and internet must be available.");
-        return;
-      }
       const payload = {
         text: text.trim(),
         senderRole: role,
-        senderName: user?.name || (role === "doctor" ? "Doctor" : "Patient")
+        senderName: user?.name || (role === "doctor" ? t("doctor") : t("patient"))
       };
-      await addChatMessageCloud(appointmentId, payload);
+      if (shouldUseCloud) {
+        await addChatMessageCloud(appointmentId, payload);
+      } else {
+        await addChatMessage(appointmentId, payload);
+      }
 
-      const refreshed = await getChatMessagesCloud(appointmentId);
+      const refreshed = shouldUseCloud
+        ? await getChatMessagesCloud(appointmentId)
+        : await getChatMessages(appointmentId);
       setMessages(refreshed);
       setText("");
     } catch {
-      alert("Unable to send message.");
+      alert(t("chat_unable_send"));
     }
+  }
+
+  function startVoiceTyping() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert(t("symptom_voice_not_supported"));
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = getSpeechLang(i18n.language);
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    setIsListening(true);
+
+    recognition.onresult = (event) => {
+      const transcript = event?.results?.[0]?.[0]?.transcript || "";
+      if (transcript) {
+        setText((prev) => `${prev} ${transcript}`.trim());
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
   }
 
   if (!appointmentId) {
     return (
       <div style={styles.page}>
-        <h2 style={styles.title}>Text Consultation</h2>
-        <p>Invalid consultation. Open chat from appointment queue.</p>
+        <SpeakableText
+          as="h2"
+          text={t("chat_title")}
+          style={styles.title}
+          wrapperStyle={{ display: "flex" }}
+        />
+        <SpeakableText
+          as="p"
+          text={t("chat_invalid_consultation")}
+          wrapperStyle={{ display: "flex" }}
+        />
       </div>
     );
   }
 
   return (
     <div style={styles.page}>
-      <h2 style={styles.title}>Text Consultation</h2>
-      {!shouldUseCloud && <p style={styles.empty}>Cloud connection required for chat.</p>}
+      <SpeakableText
+        as="h2"
+        text={t("chat_title")}
+        style={styles.title}
+        wrapperStyle={{ display: "flex" }}
+      />
+      {!shouldUseCloud && hasSupabase && (
+        <SpeakableText
+          as="p"
+          text={t("chat_offline_message")}
+          style={styles.empty}
+          wrapperStyle={{ display: "flex" }}
+        />
+      )}
       <div style={styles.chatBox}>
-        {messages.length === 0 && <p style={styles.empty}>No messages yet.</p>}
+        {messages.length === 0 && (
+          <SpeakableText
+            as="p"
+            text={t("chat_no_messages")}
+            style={styles.empty}
+            wrapperStyle={{ display: "flex" }}
+          />
+        )}
         {messages.map((m) => {
           const mine = m.senderRole === role;
+          const displayText = translatedMessages[m.id] || m.text;
           return (
             <div key={m.id} style={{ ...styles.msg, ...(mine ? styles.mine : styles.theirs) }}>
               <div style={styles.meta}>
                 {m.senderName} ({m.senderRole})
               </div>
-              <div>{m.text}</div>
+              <SpeakableText text={displayText} />
             </div>
           );
         })}
@@ -109,11 +216,20 @@ export default function Chat() {
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Type message..."
+          placeholder={t("chat_type_message")}
           style={styles.input}
         />
+        {role === "patient" && (
+          <button
+            type="button"
+            style={styles.voiceBtn}
+            onClick={startVoiceTyping}
+          >
+            {isListening ? t("voice_listening") : t("chat_speak_message")}
+          </button>
+        )}
         <button style={styles.button} type="submit">
-          Send
+          {t("chat_send")}
         </button>
       </form>
     </div>
@@ -177,6 +293,14 @@ const styles = {
     borderRadius: 8,
     padding: "10px 14px",
     background: "#203a43",
+    color: "#fff",
+    cursor: "pointer"
+  },
+  voiceBtn: {
+    border: "none",
+    borderRadius: 8,
+    padding: "10px 14px",
+    background: "#0f766e",
     color: "#fff",
     cursor: "pointer"
   }

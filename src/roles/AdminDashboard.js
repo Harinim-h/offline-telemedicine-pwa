@@ -1,3 +1,6 @@
+import { useTranslation } from "react-i18next";
+
 export default function AdminDashboard() {
-  return <h2>Admin Dashboard</h2>;
+  const { t } = useTranslation();
+  return <h2>{t("admin_dashboard")}</h2>;
 }

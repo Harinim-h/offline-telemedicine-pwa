@@ -99,7 +99,7 @@ export default function AdminHome() {
 
   async function forceComplete(id) {
     if (!hasSupabase || !isOnline) {
-      alert("Cloud connection required.");
+      alert(t("admin_cloud_connection_required"));
       return;
     }
     await updateAppointmentCloud(id, { status: "completed" });
@@ -110,64 +110,71 @@ export default function AdminHome() {
       <h2 style={title}>{t("admin_dashboard")}</h2>
 
       {!hasSupabase && (
-        <p style={notice}>Supabase not configured. Set env keys to enable admin features.</p>
+        <p style={notice}>{t("admin_not_configured")}</p>
       )}
       {hasSupabase && !isOnline && (
-        <p style={notice}>You are offline. Admin live data sync is paused.</p>
+        <p style={notice}>{t("admin_offline_paused")}</p>
       )}
 
       <div style={grid}>
-        <MetricCard label="Total Patients" value={stats.patients} />
-        <MetricCard label="Doctors" value={stats.doctors} />
-        <MetricCard label="Appointments Today" value={stats.today} />
-        <MetricCard label="Active Consults" value={stats.active} />
-        <MetricCard label="Completed Cases" value={stats.completed} />
+        <MetricCard label={t("admin_total_patients_short")} value={stats.patients} />
+        <MetricCard label={t("admin_doctors_short")} value={stats.doctors} />
+        <MetricCard label={t("admin_appointments_today_short")} value={stats.today} />
+        <MetricCard label={t("admin_active_consults")} value={stats.active} />
+        <MetricCard label={t("admin_completed_cases")} value={stats.completed} />
       </div>
 
-      <Section title="Operational Controls">
+      <Section title={t("admin_operational_controls")}>
         <div style={actions}>
+          <button style={btn} onClick={() => navigate("/admin-analytics")}>
+            {t("admin_analytics_button")}
+          </button>
           <button style={btn} onClick={() => navigate("/appointments")}>
-            Open Appointment Queue
+            {t("admin_open_appointment_queue")}
           </button>
           <button style={btn} onClick={() => navigate("/doctor/patients")}>
-            View Patient Records
+            {t("admin_view_patient_records")}
           </button>
           <button style={btn} onClick={() => navigate("/pharmacy")}>
-            Pharmacy Monitor
+            {t("admin_pharmacy_monitor")}
           </button>
         </div>
       </Section>
 
-      <Section title="Doctor Workload">
+      <Section title={t("admin_doctor_workload")}>
         {doctorLoad.map((d) => (
           <ListItem
             key={d.name}
-            text={`${d.name} | Total: ${d.total} | Active: ${d.active}`}
+            text={t("admin_doctor_workload_item", {
+              name: d.name,
+              total: d.total,
+              active: d.active
+            })}
           />
         ))}
       </Section>
 
-      <Section title="Live Appointment Monitor">
-        {loading && <p>Loading...</p>}
-        {!loading && appointments.length === 0 && <p>No appointments found.</p>}
+      <Section title={t("admin_live_appointment_monitor")}>
+        {loading && <p>{t("loading")}</p>}
+        {!loading && appointments.length === 0 && <p>{t("admin_no_appointments_found")}</p>}
         {!loading &&
           appointments.slice(0, 10).map((a) => (
             <div key={a.id} style={panel}>
               <div style={row}>
                 <strong>
-                  {a.patientName} -> {a.doctorName}
+                  {a.patientName} -> {t(`doctor_${a.doctorId?.split("_")[1]}`, a.doctorName)}
                 </strong>
-                <span>{a.status || "booked"}</span>
+                <span>{t(`appointments_status_${a.status || "booked"}`)}</span>
               </div>
               <div style={rowSub}>
-                {a.date} {a.time} | Token #{a.tokenNo || "-"}
+                {a.date} {a.time} | {t("appointments_code")}: {a.tokenNo || "-"}
               </div>
-              <div style={rowSub}>Symptoms: {a.symptoms || "-"}</div>
+              <div style={rowSub}>{t("appointments_symptoms")}: {a.symptoms || "-"}</div>
               <div style={actions}>
                 {a.consultCode && <code>{a.consultCode}</code>}
                 {a.status !== "completed" && (
                   <button style={btnSmall} onClick={() => forceComplete(a.id)}>
-                    Force Complete
+                    {t("admin_force_complete")}
                   </button>
                 )}
               </div>

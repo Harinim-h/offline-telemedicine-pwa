@@ -26,6 +26,7 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
     "test": "react-scripts test",
+    "translate:locales": "node scripts/translate-locales.mjs",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

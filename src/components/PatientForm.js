@@ -17,7 +17,7 @@ export default function PatientForm({ onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!hasSupabase || !navigator.onLine) {
-      alert("Supabase cloud is required and internet must be available.");
+      alert(t("appointments_cloud_required_online"));
       return;
     }
     await addPatientRecordCloud(form);

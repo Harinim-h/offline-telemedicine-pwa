@@ -1,30 +1,48 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
+import SpeakableText from "../components/SpeakableText";
+import { hasSupabase, supabase } from "../supabaseClient";
 
 const CALL_KEY = "telemedicine_call_room";
-const RTC_CONFIG = {
-  iceServers: [
+
+function buildIceServers() {
+  const servers = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" }
-  ]
+  ];
+
+  const turnUrlsRaw = String(process.env.REACT_APP_TURN_URLS || "").trim();
+  const turnUsername = String(process.env.REACT_APP_TURN_USERNAME || "").trim();
+  const turnCredential = String(process.env.REACT_APP_TURN_CREDENTIAL || "").trim();
+
+  const turnUrls = turnUrlsRaw
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
+
+  if (turnUrls.length > 0 && turnUsername && turnCredential) {
+    servers.push({
+      urls: turnUrls,
+      username: turnUsername,
+      credential: turnCredential
+    });
+  }
+
+  return servers;
+}
+
+const RTC_CONFIG = {
+  iceServers: buildIceServers()
 };
 
-function roomStorageKey(roomCode) {
-  return `consult_room_${roomCode}`;
+function buildJitsiUrl(code) {
+  const room = String(code || "").trim().toUpperCase();
+  return `https://meet.jit.si/${encodeURIComponent(room)}#config.prejoinPageEnabled=false`;
 }
 
-function readRoom(roomCode) {
-  try {
-    const raw = localStorage.getItem(roomStorageKey(roomCode));
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveRoom(roomCode, roomData) {
-  localStorage.setItem(roomStorageKey(roomCode), JSON.stringify(roomData));
+function channelNameForRoom(roomCode) {
+  return `consult-room-${roomCode.replace(/[^A-Z0-9-]/g, "")}`;
 }
 
 export default function Consultation() {
@@ -51,16 +69,23 @@ export default function Consultation() {
   const [permissionError, setPermissionError] = useState("");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [remoteJoined, setRemoteJoined] = useState(false);
+  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+  const [jitsiUrl, setJitsiUrl] = useState("");
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const remoteStreamRef = useRef(null);
   const peerConnectionRef = useRef(null);
-  const pollerRef = useRef(null);
+  const channelRef = useRef(null);
+  const activeRoomCodeRef = useRef("");
   const activeSessionIdRef = useRef("");
-  const doctorCandidateIndexRef = useRef(0);
-  const patientCandidateIndexRef = useRef(0);
+  const participantIdRef = useRef(
+    `${role}_${Math.random().toString(36).slice(2, 10)}`
+  );
+  const offerRetryRef = useRef(null);
+  const pendingCandidatesRef = useRef([]);
+  const candidateBacklogBySessionRef = useRef({});
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
@@ -68,23 +93,11 @@ export default function Consultation() {
 
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
+
     return () => {
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
-      if (pollerRef.current) {
-        clearInterval(pollerRef.current);
-        pollerRef.current = null;
-      }
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-        peerConnectionRef.current = null;
-      }
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
-      if (remoteStreamRef.current) {
-        remoteStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
+      teardownCall(false);
     };
   }, []);
 
@@ -92,13 +105,10 @@ export default function Consultation() {
     if (!codeFromUrl) return;
     setRoomCode(codeFromUrl);
     localStorage.setItem(CALL_KEY, codeFromUrl);
+    setJitsiUrl(buildJitsiUrl(codeFromUrl));
+    setInCall(true);
+    setStatus("Connected via Jitsi in-app room.");
   }, [codeFromUrl]);
-
-  function generateRoomCode() {
-    const code = `TM-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    setRoomCode(code);
-    localStorage.setItem(CALL_KEY, code);
-  }
 
   async function prepareMedia() {
     if (localStreamRef.current) return true;
@@ -115,7 +125,10 @@ export default function Consultation() {
         audio: true
       });
       localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.play().catch(() => {});
+      }
       return true;
     } catch {
       setPermissionError(t("video_call_permission_error"));
@@ -125,7 +138,92 @@ export default function Consultation() {
     }
   }
 
-  function setupPeerConnection(cleanCode) {
+  function stopOfferRetry() {
+    if (offerRetryRef.current) {
+      clearInterval(offerRetryRef.current);
+      offerRetryRef.current = null;
+    }
+  }
+
+  function closeSignalChannel() {
+    stopOfferRetry();
+    if (channelRef.current && supabase) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+  }
+
+  function clearPeerConnection() {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    pendingCandidatesRef.current = [];
+    candidateBacklogBySessionRef.current = {};
+  }
+
+  function clearMedia() {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+    if (remoteStreamRef.current) {
+      remoteStreamRef.current.getTracks().forEach((track) => track.stop());
+      remoteStreamRef.current = null;
+    }
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+  }
+
+  async function sendSignal(payload) {
+    if (!channelRef.current) return false;
+    const response = await channelRef.current.send({
+      type: "broadcast",
+      event: "signal",
+      payload: {
+        ...payload,
+        senderId: participantIdRef.current,
+        roomCode: activeRoomCodeRef.current,
+        sentAt: Date.now()
+      }
+    });
+    return response === "ok";
+  }
+
+  function stashCandidate(sessionId, candidate) {
+    if (!sessionId || !candidate) return;
+    if (!candidateBacklogBySessionRef.current[sessionId]) {
+      candidateBacklogBySessionRef.current[sessionId] = [];
+    }
+    candidateBacklogBySessionRef.current[sessionId].push(candidate);
+  }
+
+  function moveBacklogToPending(sessionId) {
+    if (!sessionId) return;
+    const queued = candidateBacklogBySessionRef.current[sessionId] || [];
+    if (queued.length > 0) {
+      pendingCandidatesRef.current.push(...queued);
+    }
+    delete candidateBacklogBySessionRef.current[sessionId];
+  }
+
+  async function flushPendingCandidates() {
+    const connection = peerConnectionRef.current;
+    if (!connection || !connection.remoteDescription) return;
+
+    const pending = [...pendingCandidatesRef.current];
+    pendingCandidatesRef.current = [];
+
+    for (const candidate of pending) {
+      try {
+        await connection.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch {
+        // ignore malformed or duplicate candidate
+      }
+    }
+  }
+
+  function setupPeerConnection() {
     const connection = new RTCPeerConnection(RTC_CONFIG);
     peerConnectionRef.current = connection;
 
@@ -141,151 +239,205 @@ export default function Consultation() {
       event.streams[0].getTracks().forEach((track) => {
         remoteStream.addTrack(track);
       });
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.play().catch(() => {});
+      }
       setRemoteJoined(true);
       setStatus(t("video_call_connected"));
     };
 
-    connection.onicecandidate = (event) => {
-      if (!event.candidate) return;
-      const room = readRoom(cleanCode);
-      if (!room || room.sessionId !== activeSessionIdRef.current) return;
-
-      const candidate = {
-        ...event.candidate.toJSON(),
-        sessionId: activeSessionIdRef.current
-      };
-      if (role === "doctor") {
-        room.doctorCandidates = [...(room.doctorCandidates || []), candidate];
-      } else {
-        room.patientCandidates = [...(room.patientCandidates || []), candidate];
-      }
-      room.updatedAt = Date.now();
-      saveRoom(cleanCode, room);
+    connection.onicecandidate = async (event) => {
+      if (!event.candidate || !activeSessionIdRef.current) return;
+      await sendSignal({
+        type: "candidate",
+        senderRole: role,
+        sessionId: activeSessionIdRef.current,
+        candidate: event.candidate.toJSON()
+      });
     };
-  }
 
-  async function consumeRemoteCandidates(cleanCode) {
-    const room = readRoom(cleanCode);
-    const connection = peerConnectionRef.current;
-    if (!room || !connection || !connection.remoteDescription) return;
-
-    const list =
-      role === "doctor"
-        ? room.patientCandidates || []
-        : room.doctorCandidates || [];
-    const idxRef =
-      role === "doctor" ? patientCandidateIndexRef : doctorCandidateIndexRef;
-
-    for (let i = idxRef.current; i < list.length; i += 1) {
-      const candidate = list[i];
-      if (candidate.sessionId !== activeSessionIdRef.current) continue;
-      try {
-        await connection.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch {
-        // ignore bad candidate
+    connection.onconnectionstatechange = () => {
+      const state = connection.connectionState;
+      if (state === "connected") {
+        setStatus(t("video_call_connected"));
+      } else if (state === "failed" || state === "disconnected") {
+        setStatus(t("video_call_connection_failed"));
+      } else if (state === "connecting") {
+        setStatus(t("video_call_connecting"));
       }
-    }
-    idxRef.current = list.length;
+    };
+
+    return connection;
   }
 
-  function startRoomPoller(cleanCode) {
-    if (pollerRef.current) clearInterval(pollerRef.current);
-    pollerRef.current = setInterval(async () => {
-      const room = readRoom(cleanCode);
-      const connection = peerConnectionRef.current;
-      if (!room || !connection) return;
+  async function startDoctorOfferBroadcast(connection, cleanCode) {
+    const sessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    activeSessionIdRef.current = sessionId;
 
-      if (room.endedAt) {
-        teardownCall(false);
-        setStatus(t("video_call_ended"));
+    const offer = await connection.createOffer();
+    await connection.setLocalDescription(offer);
+
+    const offerPayload = {
+      type: "offer",
+      senderRole: "doctor",
+      sessionId,
+      offer: { type: offer.type, sdp: offer.sdp }
+    };
+
+    await sendSignal(offerPayload);
+    stopOfferRetry();
+    offerRetryRef.current = setInterval(() => {
+      if (!peerConnectionRef.current?.currentRemoteDescription) {
+        sendSignal(offerPayload);
+      } else {
+        stopOfferRetry();
+      }
+    }, 2000);
+
+    setStatus(t("video_call_waiting"));
+    setInCall(true);
+    activeRoomCodeRef.current = cleanCode;
+  }
+
+  async function handleIncomingSignal(payload) {
+    if (!payload) return;
+    if (payload.senderId && payload.senderId === participantIdRef.current) return;
+    if (payload.roomCode !== activeRoomCodeRef.current) return;
+
+    const connection = peerConnectionRef.current;
+    if (!connection) return;
+
+    if (payload.type === "offer" && role !== "doctor") {
+      if (connection.currentRemoteDescription) return;
+      activeSessionIdRef.current = payload.sessionId;
+      moveBacklogToPending(payload.sessionId);
+      await connection.setRemoteDescription(
+        new RTCSessionDescription(payload.offer)
+      );
+      const answer = await connection.createAnswer();
+      await connection.setLocalDescription(answer);
+      await sendSignal({
+        type: "answer",
+        senderRole: role,
+        sessionId: payload.sessionId,
+        answer: { type: answer.type, sdp: answer.sdp }
+      });
+      await flushPendingCandidates();
+      setStatus(t("video_call_waiting"));
+      setInCall(true);
+      return;
+    }
+
+    if (
+      payload.type === "answer" &&
+      role === "doctor" &&
+      payload.sessionId === activeSessionIdRef.current &&
+      !connection.currentRemoteDescription
+    ) {
+      await connection.setRemoteDescription(
+        new RTCSessionDescription(payload.answer)
+      );
+      stopOfferRetry();
+      await flushPendingCandidates();
+      setStatus(t("video_call_waiting"));
+      return;
+    }
+
+    if (payload.type === "candidate") {
+      if (!payload.sessionId || !payload.candidate) return;
+
+      if (!activeSessionIdRef.current) {
+        stashCandidate(payload.sessionId, payload.candidate);
         return;
       }
 
-      if (
-        role === "doctor" &&
-        room.answer &&
-        room.answer.sessionId === activeSessionIdRef.current &&
-        !connection.currentRemoteDescription
-      ) {
-        await connection.setRemoteDescription(
-          new RTCSessionDescription(room.answer)
-        );
+      if (payload.sessionId !== activeSessionIdRef.current) {
+        stashCandidate(payload.sessionId, payload.candidate);
+        return;
       }
 
-      await consumeRemoteCandidates(cleanCode);
-    }, 700);
+      if (connection.remoteDescription) {
+        try {
+          await connection.addIceCandidate(new RTCIceCandidate(payload.candidate));
+        } catch {
+          // ignore malformed or duplicate candidate
+        }
+      } else {
+        pendingCandidatesRef.current.push(payload.candidate);
+      }
+      return;
+    }
+
+    if (
+      payload.type === "end" &&
+      payload.sessionId &&
+      payload.sessionId === activeSessionIdRef.current
+    ) {
+      teardownCall(false);
+      setStatus(t("video_call_ended"));
+    }
+  }
+
+  async function subscribeToRoom(cleanCode) {
+    if (!hasSupabase || !supabase || !isOnline) {
+      setStatus(t("video_call_cloud_required"));
+      return false;
+    }
+
+    closeSignalChannel();
+
+    return new Promise((resolve) => {
+      const channel = supabase.channel(channelNameForRoom(cleanCode), {
+        config: { broadcast: { self: false } }
+      });
+      channelRef.current = channel;
+      activeRoomCodeRef.current = cleanCode;
+
+      channel.on("broadcast", { event: "signal" }, async ({ payload }) => {
+        try {
+          await handleIncomingSignal(payload);
+        } catch {
+          setStatus(t("video_call_start_error"));
+        }
+      });
+
+      channel.subscribe((subscribeStatus) => {
+        if (subscribeStatus === "SUBSCRIBED") {
+          resolve(true);
+        } else if (
+          subscribeStatus === "CLOSED" ||
+          subscribeStatus === "CHANNEL_ERROR" ||
+          subscribeStatus === "TIMED_OUT"
+        ) {
+          setStatus(t("video_call_room_connect_error"));
+          resolve(false);
+        }
+      });
+    });
   }
 
   async function startCall() {
-    if (!roomCode.trim()) {
+    const cleanCode = roomCode.trim().toUpperCase();
+    if (!cleanCode) {
       setStatus(t("video_call_enter_room"));
       return;
     }
 
-    const ready = await prepareMedia();
-    if (!ready) return;
-
-    const cleanCode = roomCode.trim().toUpperCase();
     localStorage.setItem(CALL_KEY, cleanCode);
     setRoomCode(cleanCode);
-    setStatus(t("video_call_connecting"));
-    doctorCandidateIndexRef.current = 0;
-    patientCandidateIndexRef.current = 0;
 
-    setupPeerConnection(cleanCode);
+    setJitsiUrl(buildJitsiUrl(cleanCode));
+    setInCall(true);
+    setStatus("Connected via Jitsi in-app room.");
+  }
 
-    try {
-      const connection = peerConnectionRef.current;
-
-      if (role === "doctor") {
-        const sessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        activeSessionIdRef.current = sessionId;
-
-        const offer = await connection.createOffer();
-        await connection.setLocalDescription(offer);
-
-        saveRoom(cleanCode, {
-          roomCode: cleanCode,
-          sessionId,
-          offer: { type: offer.type, sdp: offer.sdp, sessionId },
-          answer: null,
-          doctorCandidates: [],
-          patientCandidates: [],
-          endedAt: null,
-          updatedAt: Date.now()
-        });
-      } else {
-        const room = readRoom(cleanCode);
-        if (!room?.offer || !room?.sessionId) {
-          teardownCall(false);
-          setStatus(t("video_call_room_not_ready"));
-          return;
-        }
-
-        activeSessionIdRef.current = room.sessionId;
-        await connection.setRemoteDescription(
-          new RTCSessionDescription(room.offer)
-        );
-        const answer = await connection.createAnswer();
-        await connection.setLocalDescription(answer);
-
-        room.answer = {
-          type: answer.type,
-          sdp: answer.sdp,
-          sessionId: room.sessionId
-        };
-        room.endedAt = null;
-        room.updatedAt = Date.now();
-        saveRoom(cleanCode, room);
-      }
-
-      startRoomPoller(cleanCode);
-      setInCall(true);
-      setStatus(t("video_call_waiting"));
-    } catch {
-      teardownCall(false);
-      setStatus(t("video_call_start_error"));
+  function openJitsiDirectSameTab() {
+    const cleanCode = roomCode.trim().toUpperCase();
+    if (!cleanCode) {
+      setStatus(t("video_call_enter_room"));
+      return;
     }
+    window.location.assign(buildJitsiUrl(cleanCode));
   }
 
   function toggleAudio() {
@@ -307,48 +459,37 @@ export default function Consultation() {
   }
 
   function teardownCall(markEnded) {
-    if (pollerRef.current) {
-      clearInterval(pollerRef.current);
-      pollerRef.current = null;
+    const sessionId = activeSessionIdRef.current;
+
+    if (markEnded && sessionId) {
+      sendSignal({
+        type: "end",
+        senderRole: role,
+        sessionId
+      });
     }
 
-    if (markEnded && roomCode.trim()) {
-      const cleanCode = roomCode.trim().toUpperCase();
-      const room = readRoom(cleanCode);
-      if (room && room.sessionId === activeSessionIdRef.current) {
-        room.endedAt = Date.now();
-        room.updatedAt = Date.now();
-        saveRoom(cleanCode, room);
-      }
-    }
-
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
-
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
-      localStreamRef.current = null;
-    }
-    if (remoteStreamRef.current) {
-      remoteStreamRef.current.getTracks().forEach((track) => track.stop());
-      remoteStreamRef.current = null;
-    }
-
-    if (localVideoRef.current) localVideoRef.current.srcObject = null;
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    closeSignalChannel();
+    clearPeerConnection();
+    clearMedia();
 
     setInCall(false);
     setCameraOn(true);
     setMicOn(true);
     setRemoteJoined(false);
+    setIsJoiningRoom(false);
     activeSessionIdRef.current = "";
-    doctorCandidateIndexRef.current = 0;
-    patientCandidateIndexRef.current = 0;
+    activeRoomCodeRef.current = "";
+    setPermissionError("");
   }
 
   function endCall() {
+    if (jitsiUrl) {
+      setJitsiUrl("");
+      setInCall(false);
+      setStatus(t("video_call_ended"));
+      return;
+    }
     teardownCall(true);
     setStatus(t("video_call_ended"));
   }
@@ -356,15 +497,23 @@ export default function Consultation() {
   return (
     <div style={styles.page}>
       <div style={styles.headerRow}>
-        <h2 style={styles.title}>{t("video_call_title")}</h2>
+        <SpeakableText
+          as="h2"
+          text={t("video_call_title")}
+          style={styles.title}
+          wrapperStyle={{ display: "flex" }}
+        />
         <span style={{ ...styles.badge, background: isOnline ? "#1f8b4c" : "#a61f2b" }}>
           {isOnline ? t("video_call_online") : t("video_call_offline")}
         </span>
       </div>
 
-      <p style={styles.subtitle}>
-        {role === "doctor" ? t("video_call_doctor_hint") : t("video_call_patient_hint")}
-      </p>
+      <SpeakableText
+        as="p"
+        text={role === "doctor" ? t("video_call_doctor_hint") : t("video_call_patient_hint")}
+        style={styles.subtitle}
+        wrapperStyle={{ display: "flex", marginBottom: 18 }}
+      />
 
       <div style={styles.card}>
         <label style={styles.label}>{t("video_call_room_code")}</label>
@@ -375,54 +524,143 @@ export default function Consultation() {
             placeholder={t("video_call_room_placeholder")}
             style={styles.input}
           />
-          <button style={styles.secondaryBtn} onClick={generateRoomCode}>
-            {t("video_call_generate")}
-          </button>
         </div>
         <p style={styles.smallText}>
           {t("video_call_signed_as")} <strong>{user?.name || t(role)}</strong>
         </p>
       </div>
 
-      <div style={styles.videoGrid}>
-        <div style={styles.videoBox}>
-          <p style={styles.videoLabel}>{t("video_call_you")}</p>
-          <video ref={localVideoRef} autoPlay muted playsInline style={styles.video} />
+      {jitsiUrl ? (
+        <div style={styles.jitsiWrap}>
+          <div style={styles.jitsiHelpRow}>
+            <p style={styles.jitsiHelpText}>
+              If embedded call does not load, open direct call page.
+            </p>
+            <button
+              type="button"
+              style={styles.secondaryBtn}
+              onClick={openJitsiDirectSameTab}
+            >
+              Open Direct Call
+            </button>
+          </div>
+          <iframe
+            title="telemedicine-jitsi-call"
+            src={jitsiUrl}
+            style={styles.jitsiFrame}
+            allow="camera; microphone; fullscreen; display-capture; autoplay"
+            allowFullScreen
+          />
         </div>
+      ) : (
+        <div style={styles.videoGrid}>
+          <div style={styles.videoBox}>
+            <p style={styles.videoLabel}>{t("video_call_you")}</p>
+            <div style={styles.remoteWrap}>
+              <video ref={localVideoRef} autoPlay muted playsInline style={styles.video} />
+              {!cameraOn && (
+                <div style={styles.localVideoOffOverlay}>
+                  {t("video_call_camera_muted_status")}
+                </div>
+              )}
+            </div>
+            <div style={styles.mediaStatusRow}>
+              <span style={micOn ? styles.statusChipOn : styles.statusChipOff}>
+                {micOn ? t("video_call_mic_live_status") : t("video_call_mic_muted_status")}
+              </span>
+              <span style={cameraOn ? styles.statusChipOn : styles.statusChipOff}>
+                {cameraOn ? t("video_call_camera_live_status") : t("video_call_camera_muted_status")}
+              </span>
+            </div>
+          </div>
 
-        <div style={styles.videoBox}>
-          <p style={styles.videoLabel}>{t("video_call_remote")}</p>
-          <div style={styles.remoteWrap}>
-            <video ref={remoteVideoRef} autoPlay playsInline style={styles.video} />
-            {!remoteJoined && (
-              <div style={styles.remotePlaceholder}>
-                {inCall ? t("video_call_waiting") : t("video_call_remote_idle")}
-              </div>
-            )}
+          <div style={styles.videoBox}>
+            <p style={styles.videoLabel}>{t("video_call_remote")}</p>
+            <div style={styles.remoteWrap}>
+              <video ref={remoteVideoRef} autoPlay playsInline style={styles.video} />
+              {!remoteJoined && (
+                <div style={styles.remotePlaceholder}>
+                  {role === "doctor" && inCall
+                    ? t("video_call_waiting")
+                    : !remoteJoined && inCall
+                      ? t("video_call_waiting_host")
+                      : t("video_call_remote_idle")}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {permissionError && <p style={styles.error}>{permissionError}</p>}
-      {status && <p style={styles.status}>{status}</p>}
+      {permissionError && (
+        <SpeakableText
+          as="p"
+          text={permissionError}
+          style={styles.error}
+          wrapperStyle={{ display: "flex", marginTop: 12 }}
+        />
+      )}
+      {status && (
+        <SpeakableText
+          as="p"
+          text={status}
+          style={styles.status}
+          wrapperStyle={{ display: "flex", marginTop: 12 }}
+        />
+      )}
 
       <div style={styles.controls}>
         {!inCall ? (
-          <button style={styles.primaryBtn} onClick={startCall} disabled={isPreparing || !isOnline}>
-            {isPreparing ? t("video_call_connecting") : t("video_call_join")}
+          <button
+            type="button"
+            style={styles.primaryBtn}
+            onClick={startCall}
+            disabled={isPreparing || isJoiningRoom}
+          >
+            {isPreparing || isJoiningRoom
+              ? t("video_call_connecting")
+              : t("video_call_join")}
           </button>
+        ) : jitsiUrl ? (
+          <div style={styles.controlBar}>
+            <button type="button" style={styles.dangerBtn} onClick={endCall}>
+              <span style={styles.controlTitle}>{t("video_call_end")}</span>
+              <span style={styles.controlMeta}>Close in-app Jitsi room</span>
+            </button>
+          </div>
         ) : (
-          <>
-            <button style={styles.secondaryBtn} onClick={toggleAudio}>
-              {micOn ? t("video_call_mute") : t("video_call_unmute")}
+          <div style={styles.controlBar}>
+            <button
+              type="button"
+              style={micOn ? styles.controlBtn : styles.controlBtnMuted}
+              onClick={toggleAudio}
+              aria-pressed={!micOn}
+            >
+              <span style={styles.controlTitle}>
+                {micOn ? t("video_call_mute") : t("video_call_unmute")}
+              </span>
+              <span style={styles.controlMeta}>
+                {micOn ? t("video_call_mic_live_status") : t("video_call_mic_muted_status")}
+              </span>
             </button>
-            <button style={styles.secondaryBtn} onClick={toggleVideo}>
-              {cameraOn ? t("video_call_camera_off") : t("video_call_camera_on")}
+            <button
+              type="button"
+              style={cameraOn ? styles.controlBtn : styles.controlBtnMuted}
+              onClick={toggleVideo}
+              aria-pressed={!cameraOn}
+            >
+              <span style={styles.controlTitle}>
+                {cameraOn ? t("video_call_camera_off") : t("video_call_camera_on")}
+              </span>
+              <span style={styles.controlMeta}>
+                {cameraOn ? t("video_call_camera_live_status") : t("video_call_camera_muted_status")}
+              </span>
             </button>
-            <button style={styles.dangerBtn} onClick={endCall}>
-              {t("video_call_end")}
+            <button type="button" style={styles.dangerBtn} onClick={endCall}>
+              <span style={styles.controlTitle}>{t("video_call_end")}</span>
+              <span style={styles.controlMeta}>{t("video_call_leave_status")}</span>
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>
@@ -494,6 +732,33 @@ const styles = {
     gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
     gap: 14
   },
+  jitsiWrap: {
+    width: "100%",
+    background: "#ffffff",
+    borderRadius: 12,
+    padding: 8,
+    boxShadow: "0 6px 16px rgba(0,0,0,0.12)"
+  },
+  jitsiHelpRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+    marginBottom: 8
+  },
+  jitsiHelpText: {
+    margin: 0,
+    color: "#36525a",
+    fontSize: 13
+  },
+  jitsiFrame: {
+    width: "100%",
+    height: "72vh",
+    border: "none",
+    borderRadius: 10,
+    background: "#0f2027"
+  },
   videoBox: {
     background: "#fff",
     borderRadius: 12,
@@ -519,52 +784,135 @@ const styles = {
   remotePlaceholder: {
     position: "absolute",
     inset: 0,
-    borderRadius: 8,
-    background: "#12303a",
-    color: "#e8f7fb",
-    display: "grid",
-    placeItems: "center",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     textAlign: "center",
-    padding: 12
+    color: "#dfe9ec",
+    background: "rgba(15, 32, 39, 0.7)",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14
+  },
+  localVideoOffOverlay: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    color: "#f7fbfc",
+    background: "rgba(15, 32, 39, 0.78)",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    fontWeight: 600
+  },
+  mediaStatusRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 10
+  },
+  statusChipOn: {
+    display: "inline-flex",
+    alignItems: "center",
+    background: "#e8f6ef",
+    color: "#1f7a45",
+    borderRadius: 999,
+    padding: "6px 10px",
+    fontSize: 12,
+    fontWeight: 600
+  },
+  statusChipOff: {
+    display: "inline-flex",
+    alignItems: "center",
+    background: "#fdecee",
+    color: "#b3261e",
+    borderRadius: 999,
+    padding: "6px 10px",
+    fontSize: 12,
+    fontWeight: 600
   },
   controls: {
-    marginTop: 18,
-    display: "flex",
-    gap: 10,
-    flexWrap: "wrap"
+    marginTop: 18
+  },
+  controlBar: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+    gap: 12,
+    width: "100%"
   },
   primaryBtn: {
-    border: "none",
-    borderRadius: 8,
-    padding: "10px 14px",
-    cursor: "pointer",
+    background: "#00796b",
     color: "#fff",
-    background: "#0d8f56"
+    border: "none",
+    borderRadius: 10,
+    padding: "12px 18px",
+    fontSize: 15,
+    cursor: "pointer"
   },
   secondaryBtn: {
-    border: "none",
-    borderRadius: 8,
-    padding: "10px 14px",
-    cursor: "pointer",
-    color: "#fff",
-    background: "#2c5364"
+    background: "#edf7f8",
+    color: "#18444b",
+    border: "1px solid #b9d7dc",
+    borderRadius: 10,
+    padding: "12px 18px",
+    fontSize: 15,
+    cursor: "pointer"
+  },
+  controlBtn: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 4,
+    background: "#edf7f8",
+    color: "#18444b",
+    border: "1px solid #b9d7dc",
+    borderRadius: 14,
+    padding: "14px 16px",
+    fontSize: 15,
+    cursor: "pointer"
+  },
+  controlBtnMuted: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 4,
+    background: "#fff1f1",
+    color: "#8f1d1d",
+    border: "1px solid #f1b7b7",
+    borderRadius: 14,
+    padding: "14px 16px",
+    fontSize: 15,
+    cursor: "pointer"
   },
   dangerBtn: {
-    border: "none",
-    borderRadius: 8,
-    padding: "10px 14px",
-    cursor: "pointer",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 4,
+    background: "#c62828",
     color: "#fff",
-    background: "#c63a3a"
+    border: "none",
+    borderRadius: 14,
+    padding: "14px 16px",
+    fontSize: 15,
+    cursor: "pointer"
+  },
+  controlTitle: {
+    fontWeight: 700
+  },
+  controlMeta: {
+    fontSize: 12,
+    opacity: 0.85
   },
   error: {
-    color: "#b4232d",
-    marginTop: 12,
-    marginBottom: 0
+    color: "#a61f2b",
+    fontWeight: 600
   },
   status: {
-    color: "#1b4552",
-    marginTop: 12,
-    marginBottom: 0
+    color: "#1b4f59",
+    fontWeight: 600
   }
 };

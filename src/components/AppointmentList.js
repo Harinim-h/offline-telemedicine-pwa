@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { dbPromise } from "../utils/db";
 
 export default function AppointmentList() {
+  const { t } = useTranslation();
   const [appointments, setAppointments] = useState([]);
   const role = localStorage.getItem("role");
 
@@ -19,8 +21,8 @@ export default function AppointmentList() {
     <div style={{ padding: 16 }}>
       <h3>
         {role === "patient"
-          ? "All Appointments (Queue View)"
-          : "Patient Appointments"}
+          ? t("appointment_list_all")
+          : t("appointment_list_patient")}
       </h3>
 
       {appointments.map((a) => (
@@ -35,11 +37,11 @@ export default function AppointmentList() {
           }}
         >
           <strong>{a.patientName}</strong>
-          <div>Date: {a.date}</div>
-          <div>Time: {a.time}</div>
+          <div>{t("appointments_date")}: {a.date}</div>
+          <div>{t("appointments_time")}: {a.time}</div>
 
           {(role === "doctor" || role === "admin") && (
-            <div>Reason: {a.reason}</div>
+            <div>{t("appointment_list_reason")}: {a.reason}</div>
           )}
         </div>
       ))}

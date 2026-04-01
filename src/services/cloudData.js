@@ -19,11 +19,19 @@ function mapUser(row) {
 }
 
 function mapPatient(row) {
+  const rawCondition = String(row.condition || "");
+  const fallbackMatch = rawCondition.match(/\nAdditional:\s*(.*)$/i);
+  const additionalFromCondition = fallbackMatch ? fallbackMatch[1].trim() : "";
+  const cleanCondition = fallbackMatch
+    ? rawCondition.replace(/\nAdditional:\s*.*$/i, "").trim()
+    : rawCondition;
+
   return {
     id: row.id,
     name: row.name,
     age: row.age,
-    condition: row.condition,
+    condition: cleanCondition,
+    additionalData: String(row.additional_data || additionalFromCondition || ""),
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
     updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now()
   };
@@ -109,18 +117,48 @@ export async function registerPatientUserCloud(user) {
 
 export async function addPatientRecordCloud(patient) {
   ensureClient();
-  const payload = {
+  const payloadWithAdditional = {
     name: patient.name,
     age: String(patient.age || ""),
-    condition: patient.condition || ""
+    condition: patient.condition || "",
+    additional_data: patient.additionalData || ""
   };
   const { data, error } = await supabase
     .from("patients")
-    .insert(payload)
+    .insert(payloadWithAdditional)
     .select()
     .single();
-  if (error) throw error;
-  return mapPatient(data);
+  if (!error) return mapPatient(data);
+
+  // Backward compatibility: if DB column `additional_data` is not created yet.
+  const message = String(error?.message || "").toLowerCase();
+  const details = String(error?.details || "").toLowerCase();
+  const hint = String(error?.hint || "").toLowerCase();
+  const missingAdditionalColumn =
+    String(error?.code || "") === "42703" ||
+    message.includes("additional_data") ||
+    details.includes("additional_data") ||
+    hint.includes("additional_data");
+
+  if (missingAdditionalColumn) {
+    const mergedCondition = patient.additionalData
+      ? `${patient.condition || ""}\nAdditional: ${patient.additionalData}`
+      : (patient.condition || "");
+    const payloadFallback = {
+      name: patient.name,
+      age: String(patient.age || ""),
+      condition: mergedCondition
+    };
+    const { data: fbData, error: fbError } = await supabase
+      .from("patients")
+      .insert(payloadFallback)
+      .select()
+      .single();
+    if (fbError) throw fbError;
+    return mapPatient(fbData);
+  }
+
+  throw error;
 }
 
 export async function getAllPatientRecordsCloud() {
@@ -131,6 +169,62 @@ export async function getAllPatientRecordsCloud() {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data || []).map(mapPatient);
+}
+
+export async function updatePatientRecordCloud(id, updates) {
+  ensureClient();
+  const payloadWithAdditional = {
+    name: updates.name,
+    age: String(updates.age || ""),
+    condition: updates.condition || "",
+    additional_data: updates.additionalData || ""
+  };
+
+  const { data, error } = await supabase
+    .from("patients")
+    .update(payloadWithAdditional)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (!error) return mapPatient(data);
+
+  const message = String(error?.message || "").toLowerCase();
+  const details = String(error?.details || "").toLowerCase();
+  const hint = String(error?.hint || "").toLowerCase();
+  const missingAdditionalColumn =
+    String(error?.code || "") === "42703" ||
+    message.includes("additional_data") ||
+    details.includes("additional_data") ||
+    hint.includes("additional_data");
+
+  if (missingAdditionalColumn) {
+    const mergedCondition = updates.additionalData
+      ? `${updates.condition || ""}\nAdditional: ${updates.additionalData}`
+      : (updates.condition || "");
+    const fallbackPayload = {
+      name: updates.name,
+      age: String(updates.age || ""),
+      condition: mergedCondition
+    };
+    const { data: fbData, error: fbError } = await supabase
+      .from("patients")
+      .update(fallbackPayload)
+      .eq("id", id)
+      .select()
+      .single();
+    if (fbError) throw fbError;
+    return mapPatient(fbData);
+  }
+
+  throw error;
+}
+
+export async function deletePatientRecordCloud(id) {
+  ensureClient();
+  const { error } = await supabase.from("patients").delete().eq("id", id);
+  if (error) throw error;
+  return true;
 }
 
 export async function createAppointmentCloud(appointment) {

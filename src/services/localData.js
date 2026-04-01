@@ -152,10 +152,17 @@ export async function updateAppointmentById(id, updates) {
   const merged = {
     ...existing,
     ...updates,
+    // Keep local primary key stable. Do not overwrite with cloud row id.
+    id: existing.id,
     updatedAt: nowTs()
   };
   await db.put("appointments", merged);
   return merged;
+}
+
+export async function deleteAppointmentById(id) {
+  const db = await dbPromise;
+  await db.delete("appointments", id);
 }
 
 export async function addChatMessage(appointmentId, message) {

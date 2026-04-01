@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = "telemed-cache-v1";
+const CACHE_NAME = "telemed-cache-v2";
 const CORE_FILES = [
   "/offline-telemedicine-pwa/",
   "/offline-telemedicine-pwa/index.html",
@@ -8,25 +8,22 @@ const CORE_FILES = [
   "/offline-telemedicine-pwa/favicon.ico"
 ];
 
-// Install SW & cache core files
-self.addEventListener("install", event => {
+self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      console.log("Caching core files...");
-      return cache.addAll(CORE_FILES);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_FILES))
   );
   self.skipWaiting();
 });
 
-// Activate SW
-self.addEventListener("activate", event => {
-  console.log("Service Worker Activated");
+self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then(keys =>
+    caches.keys().then((keys) =>
       Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) return caches.delete(key);
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+          return Promise.resolve();
         })
       )
     )
@@ -34,29 +31,44 @@ self.addEventListener("activate", event => {
   self.clients.claim();
 });
 
-// Fetch handler – cache first, then network, then fallback
-self.addEventListener("fetch", event => {
+self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
-  event.respondWith(
-    caches.match(event.request).then(response => {
-      if (response) return response;
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          const responseCopy = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put("/offline-telemedicine-pwa/index.html", responseCopy);
+          });
+          return networkResponse;
+        })
+        .catch(async () => {
+          const cachedResponse = await caches.match(event.request);
+          return (
+            cachedResponse ||
+            caches.match("/offline-telemedicine-pwa/index.html")
+          );
+        })
+    );
+    return;
+  }
 
-      // Try network and cache dynamically
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) return cachedResponse;
+
       return fetch(event.request)
-        .then(networkResponse => {
-          return caches.open(CACHE_NAME).then(cache => {
-            // Only cache same-origin requests
+        .then((networkResponse) =>
+          caches.open(CACHE_NAME).then((cache) => {
             if (event.request.url.startsWith(self.location.origin)) {
               cache.put(event.request, networkResponse.clone());
             }
             return networkResponse;
-          });
-        })
-        .catch(() => {
-          // Fallback to core files if network fails
-          return caches.match("/offline-telemedicine-pwa/index.html");
-        });
+          })
+        )
+        .catch(() => caches.match("/offline-telemedicine-pwa/index.html"));
     })
   );
 });

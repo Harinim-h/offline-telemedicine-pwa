@@ -22,6 +22,7 @@ import VoiceNavigator from "./components/VoiceNavigator";
 
 function App() {
   const location = useLocation();
+  const role = sessionStorage.getItem("role");
 
   // Hide navbar on login page
   const hideNavbar = location.pathname === "/" || location.pathname === "/login";
@@ -55,7 +56,7 @@ function App() {
         {/* fallback */}
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
-      {!hideNavbar && <VoiceNavigator />}
+      {!hideNavbar && role === "patient" && <VoiceNavigator />}
     </>
   );
 }

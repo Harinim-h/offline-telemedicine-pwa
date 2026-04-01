@@ -28,7 +28,12 @@ export default function Navbar() {
 
       {/* 📱 MOBILE MENU BUTTON */}
       {isMobile && (
-        <button style={styles.menuBtn} onClick={() => setOpen(!open)}>
+        <button
+          type="button"
+          style={styles.menuBtn}
+          onClick={() => setOpen(!open)}
+          aria-label={t("nav_toggle_menu")}
+        >
           ☰
         </button>
       )}
@@ -61,32 +66,33 @@ function MenuLinks({ role, t, onClick }) {
     <>
       {role === "patient" && (
         <>
-          <NavItem to="/home" label={t("nav.home")} onClick={onClick} />
+          <NavItem to="/patient-home" label={t("nav.home")} onClick={onClick} />
           <NavItem to="/appointments" label={t("nav.appointments")} onClick={onClick} />
           <NavItem to="/symptoms" label={t("nav.symptoms")} onClick={onClick} />
-          <NavItem to="/tips" label={t("nav.health_tips")} onClick={onClick} />
-          <NavItem to="/consult" label={t("nav.consultation")} onClick={onClick} />
-          <NavItem to="/doctors" label={t("nav.doctors")} onClick={onClick} />
+          <NavItem to="/doctor-availability" label={t("nav.doctors")} onClick={onClick} />
           <NavItem to="/profile" label={t("nav.profile")} onClick={onClick} />
         </>
       )}
 
       {role === "doctor" && (
         <>
-          <NavItem to="/doctor-home" label={t("nav.dashboard")} onClick={onClick} />
+          <NavItem to="/doctor-home" label={t("nav.home")} onClick={onClick} />
           <NavItem to="/appointments" label={t("nav.appointments")} onClick={onClick} />
+          <NavItem to="/doctor/add-patient" label={t("add_patient_title")} onClick={onClick} />
+          <NavItem to="/doctor/patients" label={t("doctor_patients_title")} onClick={onClick} />
+          <NavItem to="/doctor-analytics" label={t("nav.analytics")} onClick={onClick} />
           <NavItem to="/pharmacy" label={t("nav.pharmacy")} onClick={onClick} />
-          <NavItem to="/consult" label={t("nav.consultation")} onClick={onClick} />
         </>
       )}
 
       {role === "admin" && (
         <>
           <NavItem to="/admin-home" label={t("nav.dashboard")} onClick={onClick} />
+          <NavItem to="/admin-analytics" label={t("nav.analytics")} onClick={onClick} />
           <NavItem to="/appointments" label={t("nav.appointments")} onClick={onClick} />
-          <NavItem to="/users" label={t("nav.users")} onClick={onClick} />
+          <NavItem to="/doctor/patients" label={t("nav.users")} onClick={onClick} />
           <NavItem to="/pharmacy" label={t("nav.pharmacy")} onClick={onClick} />
-          <NavItem to="/settings" label={t("nav.settings")} onClick={onClick} />
+          <NavItem to="/admin-home" label={t("nav.settings")} onClick={onClick} />
         </>
       )}
 

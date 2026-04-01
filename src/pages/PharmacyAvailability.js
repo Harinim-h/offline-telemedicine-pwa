@@ -6,6 +6,7 @@ import {
   updatePharmacyMedicinesCloud
 } from "../services/cloudData";
 import { hasSupabase } from "../supabaseClient";
+import SpeakableText from "../components/SpeakableText";
 
 export default function PharmacyAvailability() {
   const { t } = useTranslation();
@@ -63,13 +64,13 @@ export default function PharmacyAvailability() {
 
   async function saveMedicine() {
     if (!ownerPharmacy) {
-      alert("Owner pharmacy not found.");
+      alert(t("pharmacy_owner_not_found"));
       return;
     }
     const key = medicineName.trim();
     const units = Number(medicineUnits);
     if (!key || Number.isNaN(units) || units < 0) {
-      alert("Enter valid medicine and units.");
+      alert(t("pharmacy_enter_valid_medicine_units"));
       return;
     }
 
@@ -81,10 +82,15 @@ export default function PharmacyAvailability() {
     await loadPharmacies();
   }
 
+  function selectMedicineForEdit(name, units) {
+    setMedicineName(String(name || ""));
+    setMedicineUnits(String(Number(units) || 0));
+  }
+
   async function addPharmacyOwner(e) {
     e.preventDefault();
     if (!newPharmacy.name || !newPharmacy.ownerEmail || !newPharmacy.ownerPassword) {
-      alert("Name, owner email and password are required.");
+      alert(t("pharmacy_owner_fields_required"));
       return;
     }
 
@@ -104,89 +110,155 @@ export default function PharmacyAvailability() {
       ownerPassword: ""
     });
     await loadPharmacies();
-    alert("Pharmacy owner created.");
+    alert(t("pharmacy_owner_created"));
   }
 
   const searchKey = searchMedicine.trim().toLowerCase();
 
+  function localizePharmacyName(name) {
+    const key = String(name || "").trim().toLowerCase();
+    if (key.includes("apollo")) return t("pharmacy_apollo_name");
+    if (key.includes("pharmeasy")) return t("pharmacy_pharmeasy_name");
+    return name || "-";
+  }
+
+  function localizeArea(area) {
+    const value = String(area || "").trim().toLowerCase();
+    if (value === "chennai") return t("city_chennai");
+    if (value === "bangalore" || value === "bengaluru") return t("city_bangalore");
+    return area || "-";
+  }
+
   return (
     <div style={page}>
-      <h2 style={title}>{t("pharmacy_title")}</h2>
+      <SpeakableText
+        as="h2"
+        text={t("pharmacy_title")}
+        style={title}
+        wrapperStyle={{ display: "flex", marginBottom: 16 }}
+      />
 
-      {!hasSupabase && <p style={helperText}>Supabase is not configured.</p>}
+      {!hasSupabase && (
+        <SpeakableText
+          as="p"
+          text={t("pharmacy_not_configured")}
+          style={helperText}
+          wrapperStyle={{ display: "flex" }}
+        />
+      )}
       {hasSupabase && !navigator.onLine && (
-        <p style={helperText}>Internet required for cloud pharmacy data.</p>
+        <SpeakableText
+          as="p"
+          text={t("pharmacy_internet_required")}
+          style={helperText}
+          wrapperStyle={{ display: "flex" }}
+        />
       )}
 
       {role === "admin" && (
         <div style={card}>
-          <h3 style={pharmacyName}>Create Pharmacy Owner (Admin)</h3>
+          <h3 style={pharmacyName}>{t("pharmacy_create_owner_admin")}</h3>
           <form onSubmit={addPharmacyOwner} style={adminGrid}>
             <input
               style={searchBox}
-              placeholder="Pharmacy Name"
+              placeholder={t("pharmacy_name")}
               value={newPharmacy.name}
               onChange={(e) => setNewPharmacy((p) => ({ ...p, name: e.target.value }))}
             />
             <input
               style={searchBox}
-              placeholder="Area"
+              placeholder={t("pharmacy_area")}
               value={newPharmacy.area}
               onChange={(e) => setNewPharmacy((p) => ({ ...p, area: e.target.value }))}
             />
             <input
               style={searchBox}
-              placeholder="Phone"
+              placeholder={t("phone")}
               value={newPharmacy.phone}
               onChange={(e) => setNewPharmacy((p) => ({ ...p, phone: e.target.value }))}
             />
             <input
               style={searchBox}
-              placeholder="Owner Email"
+              placeholder={t("pharmacy_owner_email")}
               value={newPharmacy.ownerEmail}
               onChange={(e) => setNewPharmacy((p) => ({ ...p, ownerEmail: e.target.value }))}
             />
             <input
               style={searchBox}
-              placeholder="Owner Password"
+              placeholder={t("pharmacy_owner_password")}
               value={newPharmacy.ownerPassword}
               onChange={(e) => setNewPharmacy((p) => ({ ...p, ownerPassword: e.target.value }))}
             />
-            <button style={btn} type="submit">Create Owner</button>
+            <button style={btn} type="submit">{t("pharmacy_create_owner")}</button>
           </form>
         </div>
       )}
 
       {role === "pharmacy" && (
         <div style={card}>
-          <h3 style={pharmacyName}>Update Medicine Stock</h3>
+          <h3 style={pharmacyName}>{t("pharmacy_update_stock")}</h3>
           <p style={helperText2}>
-            Logged in as: {user?.email || "-"} {ownerPharmacy ? `| ${ownerPharmacy.name}` : ""}
+            {t("pharmacy_logged_in_as")}: {user?.email || "-"} {ownerPharmacy ? `| ${localizePharmacyName(ownerPharmacy.name)}` : ""}
           </p>
           <div style={adminGrid}>
             <input
               style={searchBox}
-              placeholder="Medicine Name (example: Paracetamol)"
+              placeholder={t("pharmacy_medicine_name")}
               value={medicineName}
               onChange={(e) => setMedicineName(e.target.value)}
             />
             <input
               style={searchBox}
-              placeholder="Units"
+              placeholder={t("pharmacy_units")}
               type="number"
               min="0"
               value={medicineUnits}
               onChange={(e) => setMedicineUnits(e.target.value)}
             />
             <button style={btn} onClick={saveMedicine} type="button">
-              Update Units
+              {t("pharmacy_update_units")}
             </button>
           </div>
           {ownerPharmacy && (
-            <div style={{ marginTop: 10 }}>
-              {Object.entries(ownerPharmacy.medicines || {}).map(([m, qty]) => (
-                <div key={m} style={miniItem}>{m}: {qty} units</div>
-              ))}
+            <div style={{ marginTop: 12, overflowX: "auto" }}>
+              <table style={stockTable}>
+                <thead>
+                  <tr>
+                    <th style={stockHeadCell}>{t("pharmacy_medicine_name")}</th>
+                    <th style={stockHeadCell}>{t("pharmacy_units")}</th>
+                    <th style={stockHeadCell}>{t("common_action")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(ownerPharmacy.medicines || {}).map(([m, qty]) => (
+                    <tr key={m}>
+                      <td style={stockCell}>
+                        <button
+                          type="button"
+                          style={medicineLinkBtn}
+                          onClick={() => selectMedicineForEdit(m, qty)}
+                          title={t("pharmacy_update_units")}
+                        >
+                          {m}
+                        </button>
+                      </td>
+                      <td style={stockCell}>
+                        {qty} {t("units")}
+                      </td>
+                      <td style={stockCell}>
+                        <button
+                          type="button"
+                          style={smallActionBtn}
+                          onClick={() => selectMedicineForEdit(m, qty)}
+                        >
+                          {t("common_edit")}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p style={tableHint}>{t("pharmacy_click_medicine_to_edit")}</p>
             </div>
           )}
         </div>
@@ -200,8 +272,22 @@ export default function PharmacyAvailability() {
         style={searchBox}
       />
 
-      {!searchMedicine && <p style={helperText}>{t("pharmacy_helper")}</p>}
-      {loading && <p style={helperText}>Loading...</p>}
+      {!searchMedicine && (
+        <SpeakableText
+          as="p"
+          text={t("pharmacy_helper")}
+          style={helperText}
+          wrapperStyle={{ display: "flex" }}
+        />
+      )}
+      {loading && (
+        <SpeakableText
+          as="p"
+          text={t("loading")}
+          style={helperText}
+          wrapperStyle={{ display: "flex" }}
+        />
+      )}
 
       {pharmacies.map((pharmacy) => {
         let found = false;
@@ -218,9 +304,9 @@ export default function PharmacyAvailability() {
 
         return (
           <div key={pharmacy.id} style={card}>
-            <h3 style={pharmacyName}>{pharmacy.name}</h3>
-            <p>Area: {pharmacy.area}</p>
-            <p>Phone: {pharmacy.phone}</p>
+            <h3 style={pharmacyName}>{localizePharmacyName(pharmacy.name)}</h3>
+            <SpeakableText as="p" text={`${t("pharmacy_area")}: ${localizeArea(pharmacy.area)}`} wrapperStyle={{ display: "flex" }} />
+            <SpeakableText as="p" text={`${t("phone")}: ${pharmacy.phone || "-"}`} wrapperStyle={{ display: "flex" }} />
 
             {searchKey && (
               <>
@@ -320,10 +406,51 @@ const btn = {
   cursor: "pointer"
 };
 
-const miniItem = {
-  background: "#eef4f7",
-  borderRadius: 8,
-  padding: "6px 10px",
-  marginBottom: 6,
+const stockTable = {
+  width: "100%",
+  borderCollapse: "collapse",
+  minWidth: 420
+};
+
+const stockHeadCell = {
+  textAlign: "left",
+  padding: "10px 12px",
+  borderBottom: "1px solid #d6e2e8",
+  background: "#eef5f8",
+  color: "#1e3f4d",
+  fontWeight: 700,
   fontSize: 14
+};
+
+const stockCell = {
+  padding: "10px 12px",
+  borderBottom: "1px solid #edf3f6",
+  color: "#203a43",
+  fontSize: 14
+};
+
+const medicineLinkBtn = {
+  border: "none",
+  background: "transparent",
+  color: "#11556f",
+  cursor: "pointer",
+  textDecoration: "underline",
+  padding: 0,
+  fontWeight: 600
+};
+
+const smallActionBtn = {
+  border: "1px solid #bfd1d9",
+  background: "#f8fcfe",
+  color: "#1f4d5f",
+  borderRadius: 8,
+  padding: "4px 10px",
+  fontSize: 13,
+  cursor: "pointer"
+};
+
+const tableHint = {
+  marginTop: 8,
+  fontSize: 12,
+  color: "#4f6974"
 };

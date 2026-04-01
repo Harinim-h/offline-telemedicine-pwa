@@ -1,5 +1,11 @@
 const OPENAI_API_URL = "https://api.openai.com/v1/responses";
 const OPENAI_MODEL = "gpt-4o-mini";
+const LANGUAGE_NAMES = {
+  en: "English",
+  ta: "Tamil",
+  hi: "Hindi",
+  ml: "Malayalam"
+};
 
 function getApiKey() {
   return process.env.REACT_APP_OPENAI_API_KEY || "";
@@ -39,16 +45,18 @@ function parseAiText(text) {
   }
 }
 
-export async function analyzeSymptomsWithAI({ symptomText, imageDataUrl }) {
+export async function analyzeSymptomsWithAI({ symptomText, imageDataUrl, language }) {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error("openai-key-missing");
   if (!navigator.onLine) throw new Error("offline-no-ai");
+  const outputLanguage =
+    LANGUAGE_NAMES[String(language || "").toLowerCase()] || "English";
 
   const input = [
     {
       role: "system",
       content:
-        "You are a cautious triage assistant. Return ONLY JSON with keys: issue, naturalRemedy, doctorAdvice, advice, confidence, serious, redFlags. Keep output concise and safe. Do not claim diagnosis certainty."
+        `You are a cautious triage assistant. Return ONLY JSON with keys: issue, naturalRemedy, doctorAdvice, advice, confidence, serious, redFlags. Keep output concise and safe. Do not claim diagnosis certainty. Write all patient-facing text in ${outputLanguage}.`
     },
     {
       role: "user",

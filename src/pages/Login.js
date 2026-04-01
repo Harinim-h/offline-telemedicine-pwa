@@ -36,6 +36,21 @@ const DOCTOR_ACCOUNTS = [
   }
 ];
 
+const PHARMACY_DEMO_ACCOUNTS = [
+  {
+    id: "ph_apollo",
+    name: "Apollo Pharmacy",
+    ownerEmail: "apollo@gmail.com",
+    ownerPassword: "apollo@123"
+  },
+  {
+    id: "ph_pharmeasy",
+    name: "PharmEasy",
+    ownerEmail: "pharmeasy@gmail.com",
+    ownerPassword: "pharmeasy@123"
+  }
+];
+
 export default function Login() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -47,7 +62,12 @@ export default function Login() {
 
   /* ---------------- ROLE FIELDS ---------------- */
   const roleFields = {
-    patient: [
+    patientRegister: [
+      { label: t("name"), name: "name", type: "text" },
+      { label: t("age"), name: "age", type: "number" },
+      { label: t("mobile"), name: "mobile", type: "tel" }
+    ],
+    patientLogin: [
       { label: t("name"), name: "name", type: "text" },
       { label: t("age"), name: "age", type: "number" },
       { label: t("mobile"), name: "mobile", type: "tel" }
@@ -78,8 +98,19 @@ export default function Login() {
     setIsNewUser(r === "patient"); // ✅ only patient can register
   };
 
+  const activeFields =
+    role === "patient"
+      ? (isNewUser ? roleFields.patientRegister : roleFields.patientLogin)
+      : roleFields[role] || [];
+
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  const normalizeName = (value) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
 
   const completeLogin = (loggedRole, userData, route, extra = {}) => {
     sessionStorage.setItem("role", loggedRole);
@@ -115,7 +146,7 @@ export default function Login() {
             "/doctor-home"
           );
         } else {
-          alert("Invalid Doctor Credentials");
+          alert(t("login_invalid_doctor_credentials"));
         }
         setLoading(false);
         return;
@@ -135,7 +166,7 @@ export default function Login() {
             "/admin-home"
           );
         } else {
-          alert("Invalid Admin Credentials");
+          alert(t("login_invalid_admin_credentials"));
         }
         setLoading(false);
         return;
@@ -166,10 +197,31 @@ export default function Login() {
         }
 
         if (!pharmacy) {
+          const staticMatch = PHARMACY_DEMO_ACCOUNTS.find(
+            (p) =>
+              p.ownerEmail.toLowerCase() === email &&
+              p.ownerPassword === password
+          );
+          if (staticMatch) {
+            pharmacy = {
+              id: staticMatch.id,
+              name: staticMatch.name,
+              ownerEmail: staticMatch.ownerEmail,
+              ownerPassword: staticMatch.ownerPassword,
+              medicines: {
+                Paracetamol: 20,
+                Ibuprofen: 15
+              }
+            };
+            await saveOfflineCredential("pharmacy", email, password, pharmacy);
+          }
+        }
+
+        if (!pharmacy) {
           if (!navigator.onLine) {
-            alert("Offline pharmacy login failed. First login once with internet to cache credentials.");
+            alert(t("login_offline_pharmacy_failed"));
           } else {
-            alert("Invalid Pharmacy Credentials");
+            alert(t("login_invalid_pharmacy_credentials"));
           }
           setLoading(false);
           return;
@@ -192,7 +244,7 @@ export default function Login() {
       /* ===== PATIENT REGISTER / LOGIN ===== */
       const userId = (formData.mobile || "").trim();
       if (!userId) {
-        alert("Mobile number required");
+        alert(t("login_mobile_required"));
         setLoading(false);
         return;
       }
@@ -201,14 +253,22 @@ export default function Login() {
 
       // REGISTER
       if (isNewUser) {
+        const localExisting = await getPatientUserByMobile(userId);
+        if (localExisting) {
+          alert(t("login_user_already_exists"));
+          setIsNewUser(false);
+          setLoading(false);
+          return;
+        }
+
         if (!hasSupabase || !navigator.onLine) {
-          alert("Patient registration requires internet.");
+          alert(t("login_patient_registration_requires_internet"));
           setLoading(false);
           return;
         }
         const cloudExisting = await getPatientUserCloud(userId);
         if (cloudExisting) {
-          alert("User already exists. Please login.");
+          alert(t("login_user_already_exists"));
           setIsNewUser(false);
           setLoading(false);
           return;
@@ -242,7 +302,7 @@ export default function Login() {
 
       if (!loginUser) {
         if (!navigator.onLine) {
-          alert("Offline login failed. Register/login once online first.");
+          alert(t("login_offline_login_failed"));
         } else {
           alert(t("invalid_credentials"));
         }
@@ -250,9 +310,26 @@ export default function Login() {
         return;
       }
 
+      const enteredName = normalizeName(formData.name);
+      const storedName = normalizeName(loginUser?.name);
+      const enteredAgeNum = Number(formData.age);
+      const storedAgeNum = Number(loginUser?.age);
+      const isAgeMismatch =
+        Number.isFinite(enteredAgeNum) && Number.isFinite(storedAgeNum)
+          ? enteredAgeNum !== storedAgeNum
+          : String(formData.age || "").trim() !== String(loginUser?.age ?? "").trim();
+      if (!enteredName || enteredName !== storedName || isAgeMismatch) {
+        alert(t("invalid_credentials"));
+        setLoading(false);
+        return;
+      }
+
       completeLogin(
         "patient",
-        loginUser,
+        {
+          ...loginUser,
+          name: String(loginUser?.name || "").trim() || t("patient")
+        },
         "/patient-home",
         { patientMobile: userId }
       );
@@ -262,14 +339,14 @@ export default function Login() {
         const msg = String(err?.message || "");
         const code = String(err?.code || "");
         if (code === "42P01" || msg.toLowerCase().includes("relation") || msg.toLowerCase().includes("pharmacies")) {
-          alert("Pharmacy login failed: 'pharmacies' table not found. Run supabase-schema.sql in Supabase SQL Editor.");
+          alert(t("login_pharmacy_table_missing"));
         } else if (code === "42501") {
-          alert("Pharmacy login failed: Supabase RLS policy denied access. Re-run supabase-schema.sql policies.");
+          alert(t("login_pharmacy_rls_denied"));
         } else {
-          alert(`Pharmacy login failed: ${msg || "Unknown error"}`);
+          alert(`${t("login_pharmacy_failed_prefix")} ${msg || t("unknown_error")}`);
         }
       } else {
-        alert(`Something went wrong: ${err?.message || "Unknown error"}`);
+        alert(`${t("generic_error_prefix")} ${err?.message || t("unknown_error")}`);
       }
     }
 
@@ -305,7 +382,7 @@ export default function Login() {
             {isNewUser ? t("register") : t("login")}
           </h3>
 
-          {roleFields[role].map((f) => (
+          {activeFields.map((f) => (
             <input
               key={f.name}
               {...f}
@@ -318,7 +395,7 @@ export default function Login() {
           ))}
 
           <button type="submit" style={submitBtn} disabled={loading}>
-            {loading ? "Please wait..." : isNewUser ? t("register") : t("login")}
+            {loading ? t("please_wait") : isNewUser ? t("register") : t("login")}
           </button>
 
           {/* ✅ TOGGLE ONLY FOR PATIENT */}

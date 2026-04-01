@@ -1,70 +1,159 @@
-# Getting Started with Create React App
+# Offline Telemedicine PWA
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Offline-first multilingual telemedicine web app built with React.
 
-## Available Scripts
+## Main Features
 
-In the project directory, you can run:
+- Patient, doctor, admin, and pharmacy flows
+- Offline-capable local storage using IndexedDB
+- Cloud-backed data with Supabase
+- Appointment booking and consultation queue
+- Text consultation and video consultation
+- Pharmacy medicine availability
+- Symptom checker with on-device/offline behavior
+- Multilingual UI with English, Tamil, Hindi, and Malayalam
 
-### `npm start`
+## Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- React
+- React Router
+- i18next / react-i18next
+- IndexedDB via `idb`
+- Supabase
+- Firebase
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## AI Methodology
 
-### `npm test`
+The Symptom Checker now uses a hybrid AI approach:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- `Naive Bayes` classifier for symptom-text to condition-category prediction
+- `Decision Tree` model for severity/risk stratification (`low`, `medium`, `high`)
+- Optional `OpenAI` enhancement when online; local models remain primary and offline-capable
 
-### `npm run build`
+Primary implementation files:
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- `src/services/clinicalModels.js`
+- `src/components/OfflineSymptomChecker.js`
+- `src/services/aiSymptomService.js`
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Setup
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. Install dependencies
 
-### `npm run eject`
+```bash
+npm install
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+2. Create `.env` from `.env.example`
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```env
+REACT_APP_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+REACT_APP_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+REACT_APP_OPENAI_API_KEY=YOUR_OPENAI_API_KEY
+LIBRETRANSLATE_URL=http://127.0.0.1:5000/translate
+LIBRETRANSLATE_API_KEY=
+REACT_APP_TURN_URLS=turn:your-turn-server.com:3478?transport=udp,turn:your-turn-server.com:3478?transport=tcp
+REACT_APP_TURN_USERNAME=your_turn_username
+REACT_APP_TURN_CREDENTIAL=your_turn_password
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+3. Start the app
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```bash
+npm start
+```
 
-## Learn More
+## Useful Commands
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+npm start
+npm test
+npm run build
+npm run translate:locales
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Multilingual Workflow
 
-### Code Splitting
+Locale files are stored in:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- `src/locales/en.json`
+- `src/locales/ta.json`
+- `src/locales/hi.json`
+- `src/locales/ml.json`
 
-### Analyzing the Bundle Size
+The app uses local JSON files at runtime, so language switching stays fast and offline-friendly.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## Free Translation Workflow
 
-### Making a Progressive Web App
+This project includes a helper script:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+```bash
+npm run translate:locales
+```
 
-### Advanced Configuration
+Script location:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+- `scripts/translate-locales.mjs`
 
-### Deployment
+What it does:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+- reads `src/locales/en.json`
+- checks `ta.json`, `hi.json`, and `ml.json`
+- fills only missing translation keys
+- keeps existing translations untouched
 
-### `npm run build` fails to minify
+You can also target one language:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```bash
+npm run translate:locales -- ta
+npm run translate:locales -- hi
+npm run translate:locales -- ml
+```
+
+## LibreTranslate
+
+Recommended free translator for this project:
+
+- LibreTranslate
+
+Set the endpoint in `.env`:
+
+```env
+LIBRETRANSLATE_URL=http://127.0.0.1:5000/translate
+LIBRETRANSLATE_API_KEY=
+```
+
+Important:
+
+- Use machine translation to generate draft translations
+- Review medical wording manually before keeping it
+- Keep the app runtime based on local JSON, not live translation requests
+
+## Testing
+
+Run tests:
+
+```bash
+npx react-scripts test --runInBand
+```
+
+`--runInBand` is useful in restricted environments where Jest worker processes may fail.
+
+## Video Call Across Different Networks
+
+For reliable video/audio across different networks, configure a TURN server in `.env`:
+
+- `REACT_APP_TURN_URLS` (comma-separated TURN URLs)
+- `REACT_APP_TURN_USERNAME`
+- `REACT_APP_TURN_CREDENTIAL`
+
+Without TURN, WebRTC may fail on strict NAT/mobile networks even if both users are online.
+
+## Current Direction
+
+The project is being improved around:
+
+- full multilingual coverage
+- offline-first behavior
+- cleaner role-based flows
+- demo and submission readiness
