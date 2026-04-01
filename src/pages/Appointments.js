@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import SpeakableText from "../components/SpeakableText";
+import { getSpeechLang } from "../utils/speech";
 import {
   createAppointmentCloud,
   getAllAppointmentsCloud,
@@ -167,6 +168,7 @@ export default function Appointments() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isSymptomListening, setIsSymptomListening] = useState(false);
   const [bookForm, setBookForm] = useState({
     doctorId: DOCTORS[0].id,
     date: "",
@@ -462,6 +464,44 @@ export default function Appointments() {
     }
   }
 
+  function startSymptomVoiceTyping() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert(t("symptom_voice_not_supported"));
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = getSpeechLang(
+      sessionStorage.getItem("userLanguage") ||
+        localStorage.getItem("language") ||
+        "en"
+    );
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    setIsSymptomListening(true);
+
+    recognition.onresult = (event) => {
+      const transcript = event?.results?.[0]?.[0]?.transcript || "";
+      if (transcript) {
+        setBookForm((prev) => ({
+          ...prev,
+          symptoms: `${prev.symptoms} ${transcript}`.trim()
+        }));
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsSymptomListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsSymptomListening(false);
+    };
+
+    recognition.start();
+  }
+
   async function markTextConsult(appt) {
     try {
       if (!shouldUseCloud) {
@@ -675,6 +715,13 @@ export default function Appointments() {
                 onChange={(e) => setBookForm((p) => ({ ...p, symptoms: e.target.value }))}
                 style={{ ...styles.input, minHeight: 90 }}
               />
+              <button
+                type="button"
+                style={styles.voiceBtn}
+                onClick={startSymptomVoiceTyping}
+              >
+                {isSymptomListening ? t("voice_listening") : t("symptom_speak_button")}
+              </button>
             </label>
             <button style={styles.primaryBtn} disabled={saving} type="submit">
               {saving ? t("appointments_booking") : t("appointments_book_token")}
@@ -929,6 +976,16 @@ const styles = {
     padding: "10px 14px",
     cursor: "pointer",
     width: "fit-content"
+  },
+  voiceBtn: {
+    border: "none",
+    background: "#0f766e",
+    color: "#fff",
+    borderRadius: 8,
+    padding: "8px 12px",
+    cursor: "pointer",
+    width: "fit-content",
+    marginTop: 8
   },
   secondaryBtn: {
     border: "none",
