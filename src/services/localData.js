@@ -1,7 +1,7 @@
 import { openDB } from "idb";
 
 const DB_NAME = "telemed-offline-db";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 function nowTs() {
   return Date.now();
@@ -47,6 +47,14 @@ const dbPromise = openDB(DB_NAME, DB_VERSION, {
       authCache.createIndex("role", "role");
       authCache.createIndex("identifier", "identifier");
       authCache.createIndex("updatedAt", "updatedAt");
+    }
+
+    if (!db.objectStoreNames.contains("doctors")) {
+      const doctors = db.createObjectStore("doctors", {
+        keyPath: "email"
+      });
+      doctors.createIndex("id", "id");
+      doctors.createIndex("createdAt", "createdAt");
     }
   }
 });
@@ -210,4 +218,48 @@ export async function saveOfflineCredential(role, identifier, password, userData
 export async function getOfflineCredential(role, identifier) {
   const db = await dbPromise;
   return db.get("authCache", authKey(role, identifier));
+}
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function slugId(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+export async function addDoctorCredential(doctor) {
+  const db = await dbPromise;
+  const email = normalizeEmail(doctor.email);
+  if (!email) throw new Error("doctor-email-required");
+  const existing = await db.get("doctors", email);
+  if (existing) throw new Error("doctor-already-exists");
+
+  const idBase = slugId(doctor.id || doctor.name || email);
+  const record = {
+    id: idBase ? `doc_${idBase}` : `doc_${Date.now()}`,
+    name: String(doctor.name || "").trim() || "Doctor",
+    email,
+    password: String(doctor.password || "").trim(),
+    specialty: String(doctor.specialty || "General Medicine").trim(),
+    createdAt: nowTs(),
+    updatedAt: nowTs()
+  };
+  await db.put("doctors", record);
+  return record;
+}
+
+export async function getDoctorByEmail(email) {
+  const db = await dbPromise;
+  return db.get("doctors", normalizeEmail(email));
+}
+
+export async function getAllDoctors() {
+  const db = await dbPromise;
+  const all = await db.getAll("doctors");
+  return all.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 }

@@ -7,12 +7,43 @@ import {
   updateAppointmentCloud
 } from "../services/cloudData";
 import { hasSupabase } from "../supabaseClient";
+import { addDoctorCredential, getAllDoctors } from "../services/localData";
 
-const DOCTORS = [
-  { id: "doc_kumar", name: "Dr. Kumar" },
-  { id: "doc_anjali", name: "Dr. Anjali" },
-  { id: "doc_arun", name: "Dr. Arun" }
+const DEFAULT_DOCTORS = [
+  {
+    id: "doc_kumar",
+    name: "Dr. Kumar",
+    specialty: "General Medicine",
+    email: "doctor@gmail.com"
+  },
+  {
+    id: "doc_anjali",
+    name: "Dr. Anjali",
+    specialty: "Dermatology",
+    email: "anjali@gmail.com"
+  },
+  {
+    id: "doc_arun",
+    name: "Dr. Arun",
+    specialty: "Pediatrics",
+    email: "arun@gmail.com"
+  }
 ];
+
+function mergeDoctorLists(base, extra) {
+  const map = new Map();
+  (base || []).forEach((doc) => {
+    const key = doc.email || doc.id;
+    if (key) map.set(String(key), doc);
+  });
+  (extra || []).forEach((doc) => {
+    const key = doc.email || doc.id;
+    if (!key) return;
+    const existing = map.get(String(key));
+    map.set(String(key), { ...existing, ...doc });
+  });
+  return Array.from(map.values());
+}
 
 export default function AdminHome() {
   const { t } = useTranslation();
@@ -21,6 +52,15 @@ export default function AdminHome() {
   const [loading, setLoading] = useState(true);
   const [patients, setPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [doctorList, setDoctorList] = useState(DEFAULT_DOCTORS);
+  const [doctorForm, setDoctorForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    specialty: "General Medicine"
+  });
+  const [doctorSaving, setDoctorSaving] = useState(false);
+  const [doctorMessage, setDoctorMessage] = useState("");
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -30,6 +70,25 @@ export default function AdminHome() {
     return () => {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDoctors() {
+      try {
+        const localDoctors = await getAllDoctors();
+        if (!active) return;
+        setDoctorList(mergeDoctorLists(DEFAULT_DOCTORS, localDoctors));
+      } catch {
+        if (active) setDoctorList(DEFAULT_DOCTORS);
+      }
+    }
+
+    loadDoctors();
+    return () => {
+      active = false;
     };
   }, []);
 
@@ -77,25 +136,65 @@ export default function AdminHome() {
 
     return {
       patients: patients.length,
-      doctors: DOCTORS.length,
+      doctors: doctorList.length,
       today: todaysAppointments.length,
       active: activeConsults.length,
       completed: completed.length
     };
-  }, [patients, appointments]);
+  }, [patients, appointments, doctorList]);
 
   const doctorLoad = useMemo(() => {
     const map = {};
-    DOCTORS.forEach((d) => {
+    doctorList.forEach((d) => {
       map[d.id] = { name: d.name, total: 0, active: 0 };
     });
     appointments.forEach((a) => {
-      if (!map[a.doctorId]) return;
+      if (!map[a.doctorId]) {
+        map[a.doctorId] = {
+          name: a.doctorName || a.doctorId || t("doctor", "Doctor"),
+          total: 0,
+          active: 0
+        };
+      }
       map[a.doctorId].total += 1;
       if (a.status === "in_consultation") map[a.doctorId].active += 1;
     });
     return Object.values(map);
-  }, [appointments]);
+  }, [appointments, doctorList, t]);
+
+  function handleDoctorChange(e) {
+    setDoctorForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  async function handleDoctorSubmit(e) {
+    e.preventDefault();
+    setDoctorMessage("");
+    setDoctorSaving(true);
+    try {
+      const created = await addDoctorCredential(doctorForm);
+      setDoctorList((prev) => mergeDoctorLists(prev, [created]));
+      setDoctorForm({
+        name: "",
+        email: "",
+        password: "",
+        specialty: "General Medicine"
+      });
+      setDoctorMessage(t("admin_doctor_created_success", "Doctor added successfully."));
+    } catch (error) {
+      const msg = String(error?.message || "");
+      if (msg.includes("doctor-already-exists")) {
+        setDoctorMessage(t("admin_doctor_exists", "Doctor already exists."));
+      } else if (msg.includes("doctor-email-required")) {
+        setDoctorMessage(t("admin_doctor_email_required", "Doctor email is required."));
+      } else {
+        setDoctorMessage(
+          t("admin_doctor_create_failed", "Unable to add doctor. Please check details.")
+        );
+      }
+    } finally {
+      setDoctorSaving(false);
+    }
+  }
 
   async function forceComplete(id) {
     if (!hasSupabase || !isOnline) {
@@ -139,6 +238,84 @@ export default function AdminHome() {
             {t("admin_pharmacy_monitor")}
           </button>
         </div>
+      </Section>
+
+      <Section title={t("admin_add_doctor_title", "Add Doctor Login")}>
+        <p style={hint}>
+          {t(
+            "admin_add_doctor_desc",
+            "Create credentials for new doctors so they can log in and appear in booking lists."
+          )}
+        </p>
+        <form style={formGrid} onSubmit={handleDoctorSubmit}>
+          <label style={label}>
+            {t("admin_doctor_name", "Doctor Name")}
+            <input
+              name="name"
+              value={doctorForm.name}
+              onChange={handleDoctorChange}
+              style={input}
+              required
+            />
+          </label>
+          <label style={label}>
+            {t("admin_doctor_email", "Email")}
+            <input
+              name="email"
+              type="email"
+              value={doctorForm.email}
+              onChange={handleDoctorChange}
+              style={input}
+              required
+            />
+          </label>
+          <label style={label}>
+            {t("admin_doctor_password", "Password")}
+            <input
+              name="password"
+              type="text"
+              value={doctorForm.password}
+              onChange={handleDoctorChange}
+              style={input}
+              required
+            />
+          </label>
+          <label style={label}>
+            {t("admin_doctor_specialty", "Specialty")}
+            <input
+              name="specialty"
+              value={doctorForm.specialty}
+              onChange={handleDoctorChange}
+              style={input}
+              placeholder={t("admin_doctor_specialty_placeholder", "General Medicine")}
+            />
+          </label>
+          <button style={btn} type="submit" disabled={doctorSaving}>
+            {doctorSaving
+              ? t("admin_doctor_creating", "Saving...")
+              : t("admin_doctor_create", "Add Doctor")}
+          </button>
+          {doctorMessage && <span style={hint}>{doctorMessage}</span>}
+        </form>
+      </Section>
+
+      <Section title={t("admin_doctor_list_title", "Doctor Logins")}>
+        {doctorList.length === 0 && (
+          <p style={hint}>{t("admin_doctor_list_empty", "No doctors found yet.")}</p>
+        )}
+        {doctorList.map((doc) => (
+          <div key={doc.email || doc.id} style={listItem}>
+            <strong>{doc.name}</strong>
+            <div style={rowSub}>
+              {t("admin_doctor_email", "Email")}: {doc.email || "-"} |{" "}
+              {t("admin_doctor_specialty", "Specialty")}: {doc.specialty || "-"}
+            </div>
+            <div style={rowSub}>
+              {t("admin_doctor_password", "Password")}: {doc.password || "-"} |{" "}
+              {t("admin_doctor_id", "ID")}: {doc.id || "-"}
+            </div>
+          </div>
+        ))}
       </Section>
 
       <Section title={t("admin_doctor_workload")}>
@@ -224,6 +401,34 @@ const notice = {
   border: "1px solid #ffe08a",
   borderRadius: 10,
   padding: 10
+};
+
+const hint = {
+  color: "#38535d",
+  fontSize: 13,
+  marginBottom: 10
+};
+
+const formGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+  gap: 10,
+  alignItems: "end",
+  marginBottom: 8
+};
+
+const label = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+  fontSize: 14
+};
+
+const input = {
+  border: "1px solid #b9cfd6",
+  borderRadius: 8,
+  padding: "8px 10px",
+  fontSize: 14
 };
 
 const grid = {

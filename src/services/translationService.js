@@ -15,6 +15,10 @@ function getOpenAiKey() {
   return process.env.REACT_APP_OPENAI_API_KEY || "";
 }
 
+function getTranslateProxyUrl() {
+  return process.env.REACT_APP_TRANSLATE_PROXY_URL || "";
+}
+
 function getLibreTranslateUrl() {
   return (
     process.env.REACT_APP_LIBRETRANSLATE_URL ||
@@ -66,6 +70,34 @@ async function fetchWithTimeout(url, options) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function translateWithProxy(text, targetLanguage, sourceLanguage) {
+  const url = getTranslateProxyUrl();
+  if (!url) throw new Error("translate-proxy-missing");
+
+  const body = {
+    q: text,
+    source: sourceLanguage || "auto",
+    target: normalizeLang(targetLanguage),
+    format: "text"
+  };
+
+  const response = await fetchWithTimeout(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`translate-proxy-error:${response.status}:${errorText}`);
+  }
+
+  const data = await response.json();
+  return String(data?.translatedText || data?.text || "").trim();
 }
 
 async function translateWithLibreTranslate(text, targetLanguage, sourceLanguage, url) {
@@ -174,21 +206,31 @@ async function translateWithMyMemory(text, targetLanguage) {
   return String(data?.responseData?.translatedText || "").trim();
 }
 
-export async function translateChatText(text, targetLanguage) {
+export async function translateChatTextWithMeta(text, targetLanguage) {
   const rawText = String(text || "").trim();
   const normalizedTarget = normalizeLang(targetLanguage);
   const source = detectSourceLang(rawText);
 
-  if (!rawText) return "";
-  if (!navigator.onLine) return rawText;
-  if (source === normalizedTarget) return rawText;
+  if (!rawText) return { text: "", provider: "none" };
+  if (!navigator.onLine) return { text: rawText, provider: "offline" };
+  if (source === normalizedTarget) return { text: rawText, provider: "same-language" };
   if (normalizedTarget === "en" && /^[\x00-\x7F\s.,!?'"():;/\\-]+$/.test(rawText)) {
-    return rawText;
+    return { text: rawText, provider: "ascii-english" };
   }
 
   const key = cacheKey(rawText, normalizedTarget);
   if (translationCache.has(key)) {
-    return translationCache.get(key);
+    return { text: translationCache.get(key), provider: "cache" };
+  }
+
+  try {
+    const translated = await translateWithProxy(rawText, normalizedTarget, source);
+    if (translated && translated !== rawText) {
+      translationCache.set(key, translated);
+      return { text: translated, provider: "proxy" };
+    }
+  } catch {
+    // fall through to LibreTranslate
   }
 
   try {
@@ -211,7 +253,7 @@ export async function translateChatText(text, targetLanguage) {
 
     if (translated) {
       translationCache.set(key, translated);
-      return translated;
+      return { text: translated, provider: "libretranslate" };
     }
   } catch {
     // fall through to OpenAI
@@ -221,7 +263,7 @@ export async function translateChatText(text, targetLanguage) {
     const translated = await translateWithMyMemory(rawText, normalizedTarget);
     if (translated && translated !== rawText) {
       translationCache.set(key, translated);
-      return translated;
+      return { text: translated, provider: "mymemory" };
     }
   } catch {
     // fall through to next provider
@@ -231,7 +273,7 @@ export async function translateChatText(text, targetLanguage) {
     const translated = await translateWithGoogle(rawText, normalizedTarget);
     if (translated && translated !== rawText) {
       translationCache.set(key, translated);
-      return translated;
+      return { text: translated, provider: "google" };
     }
   } catch {
     // fall through to OpenAI
@@ -241,12 +283,17 @@ export async function translateChatText(text, targetLanguage) {
     const translated = await translateWithOpenAi(rawText, normalizedTarget);
     if (translated) {
       translationCache.set(key, translated);
-      return translated;
+      return { text: translated, provider: "openai" };
     }
   } catch {
     // ignore
   }
 
   // Do not cache failures so we can retry on the next refresh.
-  return rawText;
+  return { text: rawText, provider: "fallback" };
+}
+
+export async function translateChatText(text, targetLanguage) {
+  const result = await translateChatTextWithMeta(text, targetLanguage);
+  return result.text;
 }

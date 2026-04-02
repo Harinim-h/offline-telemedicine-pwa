@@ -12,7 +12,8 @@ import {
   getPatientUserByMobile,
   saveOfflineCredential,
   getOfflineCredential,
-  savePatientUserLocal
+  savePatientUserLocal,
+  getDoctorByEmail
 } from "../services/localData";
 
 const DOCTOR_ACCOUNTS = [
@@ -134,6 +135,22 @@ export default function Login() {
       if (role === "doctor") {
         const email = (formData.email || "").trim().toLowerCase();
         const password = (formData.password || "").trim();
+        const storedDoctor = await getDoctorByEmail(email);
+        if (storedDoctor && storedDoctor.password === password) {
+          completeLogin(
+            "doctor",
+            {
+              role: "doctor",
+              id: storedDoctor.id,
+              name: storedDoctor.name,
+              email: storedDoctor.email,
+              specialty: storedDoctor.specialty
+            },
+            "/doctor-home"
+          );
+          setLoading(false);
+          return;
+        }
         const doctor = DOCTOR_ACCOUNTS.find(
           (d) => d.email === email && d.password === password
         );

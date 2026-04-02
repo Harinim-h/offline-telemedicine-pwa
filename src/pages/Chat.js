@@ -6,7 +6,7 @@ import { addChatMessage, getChatMessages } from "../services/localData";
 import { hasSupabase } from "../supabaseClient";
 import SpeakableText from "../components/SpeakableText";
 import { getSpeechLang } from "../utils/speech";
-import { translateChatText } from "../services/translationService";
+import { translateChatTextWithMeta } from "../services/translationService";
 
 export default function Chat() {
   const { t, i18n } = useTranslation();
@@ -23,6 +23,7 @@ export default function Chat() {
 
   const [messages, setMessages] = useState([]);
   const [translatedMessages, setTranslatedMessages] = useState({});
+  const [translationStatus, setTranslationStatus] = useState("");
   const [text, setText] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -64,6 +65,7 @@ export default function Chat() {
 
     async function translateIncomingMessages() {
       const nextTranslations = {};
+      let lastProvider = "";
       const storedLang =
         sessionStorage.getItem("userLanguage") ||
         localStorage.getItem("language");
@@ -78,14 +80,17 @@ export default function Chat() {
           continue;
         }
 
-        nextTranslations[message.id] = await translateChatText(
+        const translated = await translateChatTextWithMeta(
           originalText,
           targetLanguage
         );
+        nextTranslations[message.id] = translated.text;
+        if (translated.provider) lastProvider = translated.provider;
       }
 
       if (!active) return;
       setTranslatedMessages(nextTranslations);
+      setTranslationStatus(lastProvider ? `Translation: ${lastProvider}` : "");
     }
 
     translateIncomingMessages();
@@ -186,6 +191,9 @@ export default function Chat() {
           wrapperStyle={{ display: "flex" }}
         />
       )}
+      {translationStatus && (
+        <p style={styles.translationStatus}>{translationStatus}</p>
+      )}
       <div style={styles.chatBox}>
         {messages.length === 0 && (
           <SpeakableText
@@ -252,6 +260,11 @@ const styles = {
   },
   empty: {
     color: "#5b7480"
+  },
+  translationStatus: {
+    margin: "0 0 10px",
+    color: "#3d5a66",
+    fontSize: 12
   },
   msg: {
     maxWidth: "75%",

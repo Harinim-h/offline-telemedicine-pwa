@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import SpeakableText from "../components/SpeakableText";
 import { getSpeechLang } from "../utils/speech";
+import { translateChatTextWithMeta } from "../services/translationService";
 import {
   createAppointmentCloud,
   getAllAppointmentsCloud,
@@ -13,6 +14,7 @@ import {
 import {
   createAppointment,
   deleteAppointmentById,
+  getAllDoctors,
   getAllAppointments,
   getAppointmentsForDoctor,
   getAppointmentsForPatient,
@@ -20,7 +22,7 @@ import {
 } from "../services/localData";
 import { hasSupabase } from "../supabaseClient";
 
-const DOCTORS = [
+const DEFAULT_DOCTORS = [
   {
     id: "doc_kumar",
     name: "Dr. Kumar",
@@ -40,6 +42,21 @@ const DOCTORS = [
     email: "arun@gmail.com"
   }
 ];
+
+function mergeDoctorLists(base, extra) {
+  const map = new Map();
+  (base || []).forEach((doc) => {
+    const key = doc.email || doc.id;
+    if (key) map.set(String(key), doc);
+  });
+  (extra || []).forEach((doc) => {
+    const key = doc.email || doc.id;
+    if (!key) return;
+    const existing = map.get(String(key));
+    map.set(String(key), { ...existing, ...doc });
+  });
+  return Array.from(map.values());
+}
 
 function sortByCreatedAtDesc(items) {
   return [...items].sort((a, b) => {
@@ -157,20 +174,26 @@ export default function Appointments() {
       return {};
     }
   }, []);
+  const userLanguage =
+    sessionStorage.getItem("userLanguage") ||
+    localStorage.getItem("language") ||
+    "en";
+  const [doctors, setDoctors] = useState(DEFAULT_DOCTORS);
 
   const activeDoctor = useMemo(() => {
     if (role !== "doctor") return null;
     const email = (user?.email || "").toLowerCase();
-    return DOCTORS.find((d) => d.email === email) || DOCTORS[0];
-  }, [role, user]);
+    return doctors.find((d) => d.email === email) || doctors[0];
+  }, [role, user, doctors]);
 
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSymptomListening, setIsSymptomListening] = useState(false);
+  const [translatedSymptoms, setTranslatedSymptoms] = useState({});
   const [bookForm, setBookForm] = useState({
-    doctorId: DOCTORS[0].id,
+    doctorId: DEFAULT_DOCTORS[0].id,
     date: "",
     time: "",
     symptoms: ""
@@ -215,6 +238,30 @@ export default function Appointments() {
     return () => {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDoctors() {
+      try {
+        const localDoctors = await getAllDoctors();
+        const merged = mergeDoctorLists(DEFAULT_DOCTORS, localDoctors);
+        if (!active) return;
+        setDoctors(merged);
+        setBookForm((prev) => {
+          if (merged.some((d) => d.id === prev.doctorId)) return prev;
+          return { ...prev, doctorId: merged[0]?.id || prev.doctorId };
+        });
+      } catch {
+        if (active) setDoctors(DEFAULT_DOCTORS);
+      }
+    }
+
+    loadDoctors();
+    return () => {
+      active = false;
     };
   }, []);
 
@@ -395,9 +442,46 @@ export default function Appointments() {
     };
   }, [role, activeDoctor, patientMobile, patientName, shouldUseCloud]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function translateSymptoms() {
+      if (role !== "doctor") {
+        if (active) setTranslatedSymptoms({});
+        return;
+      }
+      const targetLang = userLanguage;
+      const next = {};
+      for (const appt of appointments || []) {
+        const raw = String(appt?.symptoms || "").trim();
+        if (!raw) continue;
+        const key = String(
+          appt?.cloudId ??
+            appt?.id ??
+            `${appt?.patientMobile || ""}-${appt?.date || ""}-${appt?.time || ""}`
+        );
+        if (!key) continue;
+        try {
+          const result = await translateChatTextWithMeta(raw, targetLang);
+          next[key] = result.text || raw;
+        } catch {
+          next[key] = raw;
+        }
+      }
+      if (active) {
+        setTranslatedSymptoms((prev) => ({ ...prev, ...next }));
+      }
+    }
+
+    translateSymptoms();
+    return () => {
+      active = false;
+    };
+  }, [role, appointments, userLanguage]);
+
   async function bookToken(e) {
     e.preventDefault();
-    const selectedDoctor = DOCTORS.find((d) => d.id === bookForm.doctorId);
+    const selectedDoctor = doctors.find((d) => d.id === bookForm.doctorId);
     if (!selectedDoctor) return;
 
     if (!bookForm.date || !bookForm.time || !bookForm.symptoms.trim()) {
@@ -683,9 +767,9 @@ export default function Appointments() {
                 onChange={(e) => setBookForm((p) => ({ ...p, doctorId: e.target.value }))}
                 style={styles.input}
               >
-                {DOCTORS.map((d) => (
+                {doctors.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {t(`doctor_${d.id.split("_")[1]}` )} - {t(`specialty_${d.specialty.toLowerCase().replace(/\s+/g, "_")}`, d.specialty)}
+                    {t(`doctor_${d.id.split("_")[1]}`, d.name)} - {t(`specialty_${d.specialty.toLowerCase().replace(/\s+/g, "_")}`, d.specialty)}
                   </option>
                 ))}
               </select>
@@ -805,7 +889,16 @@ export default function Appointments() {
         <p style={styles.meta}>
           {t("appointments_time")}: {a.date} {a.time}
         </p>
-        <p style={styles.meta}>{t("appointments_symptoms")}: {a.symptoms}</p>
+        <p style={styles.meta}>
+          {t("appointments_symptoms")}:{" "}
+          {translatedSymptoms[
+            String(
+              a?.cloudId ??
+                a?.id ??
+                `${a?.patientMobile || ""}-${a?.date || ""}-${a?.time || ""}`
+            )
+          ] || a.symptoms}
+        </p>
         <p style={styles.meta}>{t("appointments_status")}: {a.status || t("appointments_booked")}</p>
         <div style={styles.actions}>
           <button style={styles.secondaryBtn} onClick={() => markTextConsult(a)}>
