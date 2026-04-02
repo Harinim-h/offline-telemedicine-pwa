@@ -1,12 +1,53 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  deleteChatMessageCloud,
   createPharmacyCloud,
+  getPrescriptionMessagesCloud,
   getPharmaciesCloud,
   updatePharmacyMedicinesCloud
 } from "../services/cloudData";
+import { deleteChatMessage, getAllChatMessages } from "../services/localData";
 import { hasSupabase } from "../supabaseClient";
 import SpeakableText from "../components/SpeakableText";
+
+const PRESCRIPTION_PREFIX = "[PRESCRIPTION]";
+
+function parsePrescriptionMessage(rawText) {
+  const text = String(rawText || "").trim();
+  if (!text.startsWith(PRESCRIPTION_PREFIX)) return null;
+
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const pickup = (label) => {
+    const row = lines.find((line) => line.startsWith(`${label}:`));
+    return row ? row.slice(label.length + 1).trim() : "";
+  };
+
+  const medsStart = lines.findIndex((line) => line === "Medicines:");
+  const notesStart = lines.findIndex((line) => line.startsWith("Notes:"));
+  const medicines =
+    medsStart >= 0
+      ? lines
+          .slice(medsStart + 1, notesStart >= 0 ? notesStart : undefined)
+          .filter((line) => line.startsWith("- "))
+          .map((line) => line.slice(2).trim())
+      : [];
+
+  return {
+    patientName: pickup("Patient Name"),
+    patientMobile: pickup("Patient Mobile"),
+    doctorName: pickup("Doctor Name"),
+    issuedAt: pickup("Issued At"),
+    appointmentId: pickup("Appointment Id"),
+    pharmacyOwnerEmail: pickup("Pharmacy Owner Email"),
+    medicines,
+    notes: pickup("Notes")
+  };
+}
 
 export default function PharmacyAvailability() {
   const { t } = useTranslation();
@@ -25,6 +66,7 @@ export default function PharmacyAvailability() {
   const [medicineName, setMedicineName] = useState("");
   const [medicineUnits, setMedicineUnits] = useState("");
   const [ownerPharmacy, setOwnerPharmacy] = useState(null);
+  const [incomingPrescriptions, setIncomingPrescriptions] = useState([]);
 
   const [newPharmacy, setNewPharmacy] = useState({
     name: "",
@@ -56,11 +98,66 @@ export default function PharmacyAvailability() {
     }
   }, [role, user]);
 
+  const loadIncomingPrescriptions = useCallback(async () => {
+    if (role !== "pharmacy") return;
+    try {
+      const currentOwnerEmail = String(user?.email || "").trim().toLowerCase();
+      if (hasSupabase && navigator.onLine) {
+        const cloudMessages = await getPrescriptionMessagesCloud();
+        const parsed = cloudMessages
+          .map((m) => {
+            const parsedRx = parsePrescriptionMessage(m.text);
+            return parsedRx ? { ...parsedRx, id: m.id } : null;
+          })
+          .filter(Boolean)
+          .filter((rx) => {
+            const target = String(rx?.pharmacyOwnerEmail || "ALL").trim().toLowerCase();
+            return !target || target === "all" || target === currentOwnerEmail;
+          });
+        setIncomingPrescriptions(parsed);
+        return;
+      }
+
+      const localMessages = await getAllChatMessages();
+      const parsed = localMessages
+        .map((m) => {
+          const parsedRx = parsePrescriptionMessage(m.text);
+          return parsedRx ? { ...parsedRx, id: m.id } : null;
+        })
+        .filter(Boolean)
+        .filter((rx) => {
+          const target = String(rx?.pharmacyOwnerEmail || "ALL").trim().toLowerCase();
+          return !target || target === "all" || target === currentOwnerEmail;
+        });
+      setIncomingPrescriptions(parsed);
+    } catch {
+      setIncomingPrescriptions([]);
+    }
+  }, [role, user]);
+
+  async function markPrescriptionDelivered(rxId) {
+    try {
+      if (hasSupabase && navigator.onLine) {
+        await deleteChatMessageCloud(rxId);
+      } else {
+        await deleteChatMessage(rxId);
+      }
+      await loadIncomingPrescriptions();
+    } catch {
+      alert(t("pharmacy_unable_mark_prescription_delivered", "Unable to mark prescription as delivered."));
+    }
+  }
+
   useEffect(() => {
     loadPharmacies();
+    loadIncomingPrescriptions();
     const timer = setInterval(loadPharmacies, 3000);
-    return () => clearInterval(timer);
-  }, [loadPharmacies]);
+    const rxTimer = setInterval(loadIncomingPrescriptions, 3000);
+    return () => {
+      clearInterval(timer);
+      clearInterval(rxTimer);
+    };
+  }, [loadPharmacies, loadIncomingPrescriptions]);
 
   async function saveMedicine() {
     if (!ownerPharmacy) {
@@ -264,6 +361,59 @@ export default function PharmacyAvailability() {
         </div>
       )}
 
+      {role === "pharmacy" && (
+        <div style={card}>
+          <h3 style={pharmacyName}>
+            {t("pharmacy_incoming_prescriptions", "Incoming Prescriptions")}
+          </h3>
+          {incomingPrescriptions.length === 0 ? (
+            <p style={helperText2}>
+              {t("pharmacy_no_incoming_prescriptions", "No prescriptions received yet.")}
+            </p>
+          ) : (
+            incomingPrescriptions.map((rx) => (
+              <div key={rx.id} style={rxCard}>
+                <p style={rxMeta}>
+                  <strong>{t("chat_prescription_patient_label", "Patient")}:</strong> {rx.patientName || "-"}
+                  {" | "}
+                  <strong>{t("mobile", "Mobile")}:</strong> {rx.patientMobile || "-"}
+                </p>
+                <p style={rxMeta}>
+                  <strong>{t("doctor", "Doctor")}:</strong> {rx.doctorName || "-"}
+                  {" | "}
+                  <strong>{t("date", "Date")}:</strong> {rx.issuedAt || "-"}
+                </p>
+                <p style={rxMeta}>
+                  <strong>{t("chat_prescription_pharmacy_owner", "Pharmacy Owner")}:</strong> {rx.pharmacyOwnerEmail || "ALL"}
+                </p>
+                <p style={rxTitle}>{t("chat_prescription_medicines", "Medicines")}:</p>
+                {rx.medicines.length === 0 ? (
+                  <p style={rxItem}>-</p>
+                ) : (
+                  rx.medicines.map((item, idx) => (
+                    <p key={`${rx.id}_item_${idx}`} style={rxItem}>
+                      {idx + 1}. {item}
+                    </p>
+                  ))
+                )}
+                {rx.notes && (
+                  <p style={rxNote}>
+                    <strong>{t("chat_prescription_notes", "Notes")}:</strong> {rx.notes}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  style={smallActionBtn}
+                  onClick={() => markPrescriptionDelivered(rx.id)}
+                >
+                  {t("pharmacy_mark_given_delete", "Given to patient (Delete)")}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
       <input
         type="text"
         placeholder={t("pharmacy_search_placeholder")}
@@ -453,4 +603,37 @@ const tableHint = {
   marginTop: 8,
   fontSize: 12,
   color: "#4f6974"
+};
+
+const rxCard = {
+  border: "1px solid #d6e3e8",
+  borderRadius: 10,
+  padding: 10,
+  marginBottom: 10,
+  background: "#f8fcfe"
+};
+
+const rxMeta = {
+  margin: "4px 0",
+  color: "#2f4a53",
+  fontSize: 13
+};
+
+const rxTitle = {
+  margin: "8px 0 4px",
+  fontWeight: 700,
+  color: "#1f3d49"
+};
+
+const rxItem = {
+  margin: "2px 0",
+  color: "#1f3d49",
+  fontSize: 14
+};
+
+const rxNote = {
+  marginTop: 8,
+  color: "#1f3d49",
+  fontSize: 13,
+  fontStyle: "italic"
 };

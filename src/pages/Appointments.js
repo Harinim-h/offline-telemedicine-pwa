@@ -42,6 +42,7 @@ const DEFAULT_DOCTORS = [
     email: "arun@gmail.com"
   }
 ];
+const AVG_CONSULT_MINUTES = 12;
 
 function mergeDoctorLists(base, extra) {
   const map = new Map();
@@ -161,6 +162,11 @@ function generateTokenNo(existingAppointments, doctorId, date) {
 
 function getChatAppointmentId(appt) {
   return appt?.cloudId || appt?.id;
+}
+
+function isQueueActiveStatus(status) {
+  const value = String(status || "").toLowerCase();
+  return value !== "completed" && value !== "cancelled";
 }
 
 export default function Appointments() {
@@ -739,6 +745,31 @@ export default function Appointments() {
     }
   }
 
+  function getQueueInfoForAppointment(appt) {
+    const token = Number(appt?.tokenNo || 0);
+    if (!token || !appt?.doctorId || !appt?.date) return null;
+
+    const queueForDay = (appointments || [])
+      .filter(
+        (item) =>
+          String(item?.doctorId || "") === String(appt.doctorId || "") &&
+          String(item?.date || "") === String(appt.date || "") &&
+          isQueueActiveStatus(item?.status)
+      )
+      .sort((a, b) => Number(a?.tokenNo || 0) - Number(b?.tokenNo || 0));
+
+    const queueActive = isQueueActiveStatus(appt?.status);
+    if (!queueActive || queueForDay.length === 0) return null;
+
+    const peopleAhead = queueForDay.filter(
+      (item) => Number(item?.tokenNo || 0) < token
+    ).length;
+    const position = peopleAhead + 1;
+    const etaMinutes = peopleAhead * AVG_CONSULT_MINUTES;
+
+    return { position, peopleAhead, etaMinutes };
+  }
+
   function renderPatientView() {
     return (
       <>
@@ -828,12 +859,29 @@ export default function Appointments() {
                 <strong>
                   {t("appointments_token_prefix")} #{a.tokenNo || "-"} | {t(`doctor_${a.doctorId?.split("_")[1]}`, a.doctorName)}
                 </strong>
-              <p style={styles.meta}>{t("appointments_date")}: {a.date} | {t("appointments_time")}: {a.time}</p>
-              <p style={styles.meta}>{t("appointments_status")}: {a.status || t("appointments_booked")}</p>
-              {a.syncStatus === "pending_create" && (
-                <p style={styles.meta}>{t("appointments_sync_pending")}</p>
-              )}
-              <p style={styles.meta}>{t("appointments_symptoms")}: {a.symptoms}</p>
+                <p style={styles.meta}>{t("appointments_date")}: {a.date} | {t("appointments_time")}: {a.time}</p>
+                <p style={styles.meta}>{t("appointments_status")}: {a.status || t("appointments_booked")}</p>
+                {(() => {
+                  const queueInfo = getQueueInfoForAppointment(a);
+                  if (!queueInfo) return null;
+                  return (
+                    <div style={styles.queueInfo}>
+                      <p style={styles.queueText}>
+                        {t("appointments_queue_position_today", "Today's Queue Position")}: #{queueInfo.position}
+                      </p>
+                      <p style={styles.queueText}>
+                        {t("appointments_people_ahead", "People Ahead")}: {queueInfo.peopleAhead}
+                      </p>
+                      <p style={styles.queueText}>
+                        {t("appointments_estimated_wait", "Estimated Wait")}: {queueInfo.etaMinutes} {t("minutes", "min")}
+                      </p>
+                    </div>
+                  );
+                })()}
+                {a.syncStatus === "pending_create" && (
+                  <p style={styles.meta}>{t("appointments_sync_pending")}</p>
+                )}
+                <p style={styles.meta}>{t("appointments_symptoms")}: {a.symptoms}</p>
                 {a.consultType === "video" && a.consultCode && (
                   <div style={styles.actions}>
                     <span style={styles.code}>{t("appointments_code")}: {a.consultCode}</span>
@@ -1043,6 +1091,19 @@ const styles = {
     padding: 12,
     marginBottom: 10,
     background: "#f8fdff"
+  },
+  queueInfo: {
+    margin: "8px 0",
+    background: "#eef8f3",
+    border: "1px solid #cfe5d8",
+    borderRadius: 8,
+    padding: "8px 10px"
+  },
+  queueText: {
+    margin: "2px 0",
+    color: "#1f4f39",
+    fontSize: 13,
+    fontWeight: 600
   },
   meta: {
     margin: "4px 0",

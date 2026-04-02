@@ -292,6 +292,17 @@ export async function getAllAppointmentsCloud() {
   return (data || []).map(mapAppointment);
 }
 
+export async function getAppointmentByIdCloud(id) {
+  ensureClient();
+  const { data, error } = await supabase
+    .from("appointments")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapAppointment(data) : null;
+}
+
 export async function updateAppointmentCloud(id, updates) {
   ensureClient();
   const payload = {};
@@ -340,6 +351,28 @@ export async function getChatMessagesCloud(appointmentId) {
     .order("created_at", { ascending: true });
   if (error) throw error;
   return (data || []).map(mapMessage);
+}
+
+export async function getPrescriptionMessagesCloud() {
+  ensureClient();
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .ilike("text", "[PRESCRIPTION]%")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data || []).map(mapMessage);
+}
+
+export async function deleteChatMessageCloud(messageId) {
+  ensureClient();
+  const { error } = await supabase
+    .from("messages")
+    .delete()
+    .eq("id", messageId);
+  if (error) throw error;
+  return true;
 }
 
 export async function getPharmaciesCloud() {

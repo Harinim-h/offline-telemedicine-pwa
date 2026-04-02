@@ -136,6 +136,13 @@ export async function getAllAppointments() {
   return db.getAll("appointments");
 }
 
+export async function getAppointmentById(id) {
+  const db = await dbPromise;
+  const numericId = Number(id);
+  const key = Number.isNaN(numericId) ? id : numericId;
+  return db.get("appointments", key);
+}
+
 export async function getAppointmentsForDoctor(doctorId) {
   const db = await dbPromise;
   const all = await db.getAll("appointments");
@@ -188,6 +195,20 @@ export async function getChatMessages(appointmentId) {
   return all
     .filter((m) => String(m.appointmentId) === String(appointmentId))
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+
+export async function getAllChatMessages() {
+  const db = await dbPromise;
+  const all = await db.getAll("messages");
+  return all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+export async function deleteChatMessage(id) {
+  const db = await dbPromise;
+  const numericId = Number(id);
+  const key = Number.isNaN(numericId) ? id : numericId;
+  await db.delete("messages", key);
+  return true;
 }
 
 function authKey(role, identifier) {
