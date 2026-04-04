@@ -36,6 +36,11 @@ const RTC_CONFIG = {
   iceServers: buildIceServers()
 };
 
+function buildJitsiUrl(code) {
+  const room = String(code || "").trim().toUpperCase();
+  return `https://meet.jit.si/${encodeURIComponent(room)}#config.prejoinPageEnabled=false`;
+}
+
 function channelNameForRoom(roomCode) {
   return `consult-room-${roomCode.replace(/[^A-Z0-9-]/g, "")}`;
 }
@@ -65,6 +70,7 @@ export default function Consultation() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [remoteJoined, setRemoteJoined] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+  const [jitsiUrl, setJitsiUrl] = useState("");
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -99,6 +105,13 @@ export default function Consultation() {
     if (!codeFromUrl) return;
     setRoomCode(codeFromUrl);
     localStorage.setItem(CALL_KEY, codeFromUrl);
+    setJitsiUrl(buildJitsiUrl(codeFromUrl));
+    setInCall(true);
+    setStatus(
+      role === "doctor"
+        ? "Open the Jitsi room and complete login if prompted."
+        : "Joining the doctor's consultation room as guest."
+    );
   }, [codeFromUrl]);
 
   async function prepareMedia() {
@@ -420,32 +433,14 @@ export default function Consultation() {
     setStatus(t("video_call_connecting"));
     localStorage.setItem(CALL_KEY, cleanCode);
     setRoomCode(cleanCode);
-
-    try {
-      const mediaReady = await prepareMedia();
-      if (!mediaReady) return;
-
-      const connection = setupPeerConnection();
-      const subscribed = await subscribeToRoom(cleanCode);
-      if (!subscribed) {
-        teardownCall(false);
-        return;
-      }
-
-      setInCall(true);
-      activeRoomCodeRef.current = cleanCode;
-
-      if (role === "doctor") {
-        await startDoctorOfferBroadcast(connection, cleanCode);
-      } else {
-        setStatus(t("video_call_waiting_host"));
-      }
-    } catch {
-      teardownCall(false);
-      setStatus(t("video_call_start_error"));
-    } finally {
-      setIsJoiningRoom(false);
-    }
+    setJitsiUrl(buildJitsiUrl(cleanCode));
+    setInCall(true);
+    setIsJoiningRoom(false);
+    setStatus(
+      role === "doctor"
+        ? "Open the Jitsi room and complete login if prompted."
+        : "Joining the doctor's consultation room as guest."
+    );
   }
 
   function toggleAudio() {
@@ -492,6 +487,7 @@ export default function Consultation() {
   }
 
   function endCall() {
+    setJitsiUrl("");
     teardownCall(true);
     setStatus(t("video_call_ended"));
   }
@@ -532,43 +528,55 @@ export default function Consultation() {
         </p>
       </div>
 
-      <div style={styles.videoGrid}>
-        <div style={styles.videoBox}>
-          <p style={styles.videoLabel}>{t("video_call_you")}</p>
-          <div style={styles.remoteWrap}>
-            <video ref={localVideoRef} autoPlay muted playsInline style={styles.video} />
-            {!cameraOn && (
-              <div style={styles.localVideoOffOverlay}>
-                {t("video_call_camera_muted_status")}
-              </div>
-            )}
-          </div>
-          <div style={styles.mediaStatusRow}>
-            <span style={micOn ? styles.statusChipOn : styles.statusChipOff}>
-              {micOn ? t("video_call_mic_live_status") : t("video_call_mic_muted_status")}
-            </span>
-            <span style={cameraOn ? styles.statusChipOn : styles.statusChipOff}>
-              {cameraOn ? t("video_call_camera_live_status") : t("video_call_camera_muted_status")}
-            </span>
-          </div>
+      {jitsiUrl ? (
+        <div style={styles.jitsiWrap}>
+          <iframe
+            title="telemedicine-jitsi-call"
+            src={jitsiUrl}
+            style={styles.jitsiFrame}
+            allow="camera; microphone; fullscreen; display-capture; autoplay"
+            allowFullScreen
+          />
         </div>
+      ) : (
+        <div style={styles.videoGrid}>
+          <div style={styles.videoBox}>
+            <p style={styles.videoLabel}>{t("video_call_you")}</p>
+            <div style={styles.remoteWrap}>
+              <video ref={localVideoRef} autoPlay muted playsInline style={styles.video} />
+              {!cameraOn && (
+                <div style={styles.localVideoOffOverlay}>
+                  {t("video_call_camera_muted_status")}
+                </div>
+              )}
+            </div>
+            <div style={styles.mediaStatusRow}>
+              <span style={micOn ? styles.statusChipOn : styles.statusChipOff}>
+                {micOn ? t("video_call_mic_live_status") : t("video_call_mic_muted_status")}
+              </span>
+              <span style={cameraOn ? styles.statusChipOn : styles.statusChipOff}>
+                {cameraOn ? t("video_call_camera_live_status") : t("video_call_camera_muted_status")}
+              </span>
+            </div>
+          </div>
 
-        <div style={styles.videoBox}>
-          <p style={styles.videoLabel}>{t("video_call_remote")}</p>
-          <div style={styles.remoteWrap}>
-            <video ref={remoteVideoRef} autoPlay playsInline style={styles.video} />
-            {!remoteJoined && (
-              <div style={styles.remotePlaceholder}>
-                {role === "doctor" && inCall
-                  ? t("video_call_waiting")
-                  : !remoteJoined && inCall
-                    ? t("video_call_waiting_host")
-                    : t("video_call_remote_idle")}
-              </div>
-            )}
+          <div style={styles.videoBox}>
+            <p style={styles.videoLabel}>{t("video_call_remote")}</p>
+            <div style={styles.remoteWrap}>
+              <video ref={remoteVideoRef} autoPlay playsInline style={styles.video} />
+              {!remoteJoined && (
+                <div style={styles.remotePlaceholder}>
+                  {role === "doctor" && inCall
+                    ? t("video_call_waiting")
+                    : !remoteJoined && inCall
+                      ? t("video_call_waiting_host")
+                      : t("video_call_remote_idle")}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {permissionError && (
         <SpeakableText
@@ -599,6 +607,15 @@ export default function Consultation() {
               ? t("video_call_connecting")
               : t("video_call_join")}
           </button>
+        ) : jitsiUrl ? (
+          <div style={styles.controlBar}>
+            <button type="button" style={styles.dangerBtn} onClick={endCall}>
+              <span style={styles.controlTitle}>{t("video_call_end")}</span>
+              <span style={styles.controlMeta}>
+                {role === "doctor" ? "Close the doctor room" : "Leave guest room"}
+              </span>
+            </button>
+          </div>
         ) : (
           <div style={styles.controlBar}>
             <button
