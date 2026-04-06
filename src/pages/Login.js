@@ -3,17 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
 import {
-  getPatientUserCloud,
-  registerPatientUserCloud,
   getPharmacyOwnerLoginCloud
 } from "../services/cloudData";
 import { hasSupabase } from "../supabaseClient";
 import {
   getPatientUserByMobile,
+  registerPatientUser,
   saveOfflineCredential,
   getOfflineCredential,
   savePharmacyLocal,
-  savePatientUserLocal,
   getDoctorByEmail
 } from "../services/localData";
 
@@ -193,30 +191,19 @@ export default function Login() {
         return;
       }
 
-      /* ===== PHARMACY LOGIN (FROM SUPABASE) ===== */
+      /* ===== PHARMACY LOGIN (OFFLINE FIRST) ===== */
       if (role === "pharmacy") {
         const email = (formData.email || "").trim().toLowerCase();
         const password = (formData.password || "").trim();
         let pharmacy = null;
 
-        if (hasSupabase && navigator.onLine) {
-          try {
-            pharmacy = await getPharmacyOwnerLoginCloud(email, password);
-            if (pharmacy) {
-              await saveOfflineCredential("pharmacy", email, password, pharmacy);
-            }
-          } catch (error) {
-            console.warn("Cloud pharmacy login failed, trying offline cache.", error);
-          }
+        // Try offline cache first
+        const cached = await getOfflineCredential("pharmacy", email);
+        if (cached && cached.password === password) {
+          pharmacy = cached.userData;
         }
 
-        if (!pharmacy) {
-          const cached = await getOfflineCredential("pharmacy", email);
-          if (cached && cached.password === password) {
-            pharmacy = cached.userData;
-          }
-        }
-
+        // If no offline cache, try static demo accounts
         if (!pharmacy) {
           const staticMatch = PHARMACY_DEMO_ACCOUNTS.find(
             (p) =>
@@ -238,12 +225,20 @@ export default function Login() {
           }
         }
 
-        if (!pharmacy) {
-          if (!navigator.onLine) {
-            alert(t("login_offline_pharmacy_failed"));
-          } else {
-            alert(t("login_invalid_pharmacy_credentials"));
+        // If still no match and online, try cloud
+        if (!pharmacy && hasSupabase && navigator.onLine) {
+          try {
+            pharmacy = await getPharmacyOwnerLoginCloud(email, password);
+            if (pharmacy) {
+              await saveOfflineCredential("pharmacy", email, password, pharmacy);
+            }
+          } catch (error) {
+            console.warn("Cloud pharmacy login failed.", error);
           }
+        }
+
+        if (!pharmacy) {
+          alert(t("login_invalid_pharmacy_credentials"));
           setLoading(false);
           return;
         }
@@ -287,20 +282,8 @@ export default function Login() {
           return;
         }
 
-        if (!hasSupabase || !navigator.onLine) {
-          alert(t("login_patient_registration_requires_internet"));
-          setLoading(false);
-          return;
-        }
-        const cloudExisting = await getPatientUserCloud(userId);
-        if (cloudExisting) {
-          alert(t("login_user_already_exists"));
-          setIsNewUser(false);
-          setLoading(false);
-          return;
-        }
-        const registered = await registerPatientUserCloud(patientData);
-        await savePatientUserLocal(registered);
+        // Register locally (offline)
+        await registerPatientUser(patientData);
         alert(t("registered_success"));
         setIsNewUser(false);
         setFormData({});
@@ -309,29 +292,10 @@ export default function Login() {
       }
 
       // LOGIN
-      let loginUser = null;
-
-      if (hasSupabase && navigator.onLine) {
-        try {
-          loginUser = await getPatientUserCloud(userId);
-          if (loginUser) {
-            await savePatientUserLocal(loginUser);
-          }
-        } catch (error) {
-          console.warn("Cloud patient login failed, trying offline cache.", error);
-        }
-      }
+      let loginUser = await getPatientUserByMobile(userId);
 
       if (!loginUser) {
-        loginUser = await getPatientUserByMobile(userId);
-      }
-
-      if (!loginUser) {
-        if (!navigator.onLine) {
-          alert(t("login_offline_login_failed"));
-        } else {
-          alert(t("invalid_credentials"));
-        }
+        alert(t("invalid_credentials"));
         setLoading(false);
         return;
       }
