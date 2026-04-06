@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import SpeakableText from "../components/SpeakableText";
-import { getAppointmentsForPatientCloud } from "../services/cloudData";
+import {
+  getAppointmentsForPatientCloud,
+  getPatientUserCloud,
+  updatePatientUserCloud
+} from "../services/cloudData";
 import {
   getAppointmentsForPatient,
+  getPatientUserByMobile,
   savePatientUserLocal
 } from "../services/localData";
 import { hasSupabase } from "../supabaseClient";
@@ -39,6 +44,47 @@ export default function Profile() {
 
   useEffect(() => {
     let active = true;
+
+    async function syncProfileToCloud() {
+      if (!hasSupabase || !isOnline || !patientMobile) return;
+      try {
+        const localProfile = await getPatientUserByMobile(patientMobile);
+        if (!localProfile || String(localProfile?.syncStatus || "") !== "pending_update") {
+          return;
+        }
+        const synced = await updatePatientUserCloud(patientMobile, localProfile);
+        await savePatientUserLocal({ ...synced, syncStatus: "synced" });
+        if (!active) return;
+        sessionStorage.setItem(
+          "userData",
+          JSON.stringify({ ...synced, name: String(synced?.name || "").trim() || t("patient") })
+        );
+        setProfile((prev) => ({ ...prev, ...synced }));
+      } catch {
+        // Keep local pending state until the next online sync attempt.
+      }
+    }
+
+    async function refreshProfile() {
+      try {
+        const localProfile = await getPatientUserByMobile(patientMobile);
+        if (localProfile && active) {
+          setProfile((prev) => ({ ...prev, ...localProfile }));
+        }
+        if (hasSupabase && isOnline) {
+          const cloudProfile = await getPatientUserCloud(patientMobile);
+          if (cloudProfile) {
+            await savePatientUserLocal({ ...cloudProfile, syncStatus: "synced" });
+            if (active) {
+              setProfile((prev) => ({ ...prev, ...cloudProfile }));
+            }
+          }
+        }
+      } catch {
+        // Keep local profile if refresh fails
+      }
+    }
+
     async function loadAppointments() {
       try {
         const local = await getAppointmentsForPatient(patientMobile, profile?.name || "");
@@ -55,11 +101,11 @@ export default function Profile() {
       }
     }
 
-    loadAppointments();
+    syncProfileToCloud().then(refreshProfile).then(loadAppointments);
     return () => {
       active = false;
     };
-  }, [isOnline, patientMobile, profile?.name]);
+  }, [isOnline, patientMobile, profile?.name, t]);
 
   const stats = useMemo(() => {
     const total = appointments.length;
@@ -95,10 +141,25 @@ export default function Profile() {
         name,
         age
       };
-      await savePatientUserLocal(updated);
+      if (hasSupabase && isOnline) {
+        const synced = await updatePatientUserCloud(patientMobile, updated);
+        await savePatientUserLocal({ ...synced, syncStatus: "synced" });
+        sessionStorage.setItem("userData", JSON.stringify(synced));
+        setProfile(synced);
+        setSaveState({ type: "success", text: t("profile_updated_success") });
+        return;
+      }
+
+      await savePatientUserLocal({ ...updated, syncStatus: "pending_update" });
       sessionStorage.setItem("userData", JSON.stringify(updated));
       setProfile(updated);
-      setSaveState({ type: "success", text: t("profile_updated_success") });
+      setSaveState({
+        type: "success",
+        text: t(
+          "profile_saved_offline",
+          "Profile saved offline. It will sync when internet is available."
+        )
+      });
     } catch {
       setSaveState({
         type: "error",

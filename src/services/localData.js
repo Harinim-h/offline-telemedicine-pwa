@@ -1,7 +1,7 @@
 import { openDB } from "idb";
 
 const DB_NAME = "telemed-offline-db";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 function nowTs() {
   return Date.now();
@@ -56,6 +56,15 @@ const dbPromise = openDB(DB_NAME, DB_VERSION, {
       doctors.createIndex("id", "id");
       doctors.createIndex("createdAt", "createdAt");
     }
+
+    if (!db.objectStoreNames.contains("pharmacies")) {
+      const pharmacies = db.createObjectStore("pharmacies", {
+        keyPath: "id"
+      });
+      pharmacies.createIndex("ownerEmail", "ownerEmail");
+      pharmacies.createIndex("createdAt", "createdAt");
+      pharmacies.createIndex("updatedAt", "updatedAt");
+    }
   }
 });
 
@@ -93,6 +102,7 @@ export async function savePatientUserLocal(user) {
     ...user,
     mobile,
     role: "patient",
+    syncStatus: user?.syncStatus || existing?.syncStatus || "synced",
     createdAt: existing?.createdAt || nowTs(),
     updatedAt: nowTs()
   };
@@ -104,15 +114,117 @@ export async function addPatientRecord(patient) {
   const db = await dbPromise;
   return db.add("patients", {
     ...patient,
+    syncStatus: patient?.syncStatus || "synced",
+    cloudId:
+      patient?.cloudId === undefined || patient?.cloudId === null
+        ? null
+        : patient.cloudId,
     createdAt: nowTs(),
     updatedAt: nowTs()
   });
+}
+
+export async function upsertPatientRecord(patient) {
+  const db = await dbPromise;
+  const existing =
+    patient?.id === undefined || patient?.id === null
+      ? null
+      : await db.get("patients", patient.id);
+  const record = {
+    ...existing,
+    ...patient,
+    cloudId:
+      patient?.cloudId === undefined || patient?.cloudId === null
+        ? existing?.cloudId ?? patient?.id ?? null
+        : patient.cloudId,
+    syncStatus: patient?.syncStatus || existing?.syncStatus || "synced",
+    createdAt: existing?.createdAt || Number(patient?.createdAt || 0) || nowTs(),
+    updatedAt: Number(patient?.updatedAt || 0) || nowTs()
+  };
+  await db.put("patients", record);
+  return record;
+}
+
+export async function replacePatientRecords(patients) {
+  const db = await dbPromise;
+  const tx = db.transaction("patients", "readwrite");
+  await tx.store.clear();
+  for (const patient of patients || []) {
+    const existingCreatedAt = Number(patient?.createdAt || 0) || nowTs();
+    await tx.store.put({
+      ...patient,
+      cloudId:
+        patient?.cloudId === undefined || patient?.cloudId === null
+          ? patient?.id ?? null
+          : patient.cloudId,
+      syncStatus: patient?.syncStatus || "synced",
+      createdAt: existingCreatedAt,
+      updatedAt: Number(patient?.updatedAt || 0) || existingCreatedAt
+    });
+  }
+  await tx.done;
+  return getAllPatientRecords();
 }
 
 export async function getAllPatientRecords() {
   const db = await dbPromise;
   const data = await db.getAll("patients");
   return data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+export async function updatePatientRecordLocal(id, updates) {
+  const db = await dbPromise;
+  const existing = await db.get("patients", id);
+  if (!existing) throw new Error("patient-not-found");
+  const merged = {
+    ...existing,
+    ...updates,
+    id: existing.id,
+    cloudId:
+      updates?.cloudId === undefined || updates?.cloudId === null
+        ? existing?.cloudId ?? existing.id ?? null
+        : updates.cloudId,
+    syncStatus: updates?.syncStatus || existing?.syncStatus || "synced",
+    updatedAt: nowTs()
+  };
+  await db.put("patients", merged);
+  return merged;
+}
+
+export async function replacePatientRecordLocal(oldId, patient) {
+  const db = await dbPromise;
+  const tx = db.transaction("patients", "readwrite");
+  const oldKey =
+    oldId === undefined || oldId === null || oldId === ""
+      ? null
+      : oldId;
+  const nextKey =
+    patient?.id === undefined || patient?.id === null || patient?.id === ""
+      ? null
+      : patient.id;
+
+  if (oldKey !== null && nextKey !== null && String(oldKey) !== String(nextKey)) {
+    await tx.store.delete(oldKey);
+  }
+
+  await tx.store.put({
+    ...patient,
+    syncStatus: patient?.syncStatus || "synced",
+    cloudId:
+      patient?.cloudId === undefined || patient?.cloudId === null
+        ? patient?.id ?? null
+        : patient.cloudId,
+    createdAt: Number(patient?.createdAt || 0) || nowTs(),
+    updatedAt: Number(patient?.updatedAt || 0) || nowTs()
+  });
+  await tx.done;
+  return patient;
+}
+
+export async function deletePatientRecordLocal(id) {
+  const db = await dbPromise;
+  await db.delete("patients", id);
+  return true;
 }
 
 export async function createAppointment(appointment) {
@@ -283,4 +395,49 @@ export async function getAllDoctors() {
   const db = await dbPromise;
   const all = await db.getAll("doctors");
   return all.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+
+export async function savePharmacyLocal(pharmacy) {
+  const db = await dbPromise;
+  const id = String(pharmacy?.id || "").trim();
+  if (!id) throw new Error("pharmacy-id-required");
+  const existing = await db.get("pharmacies", id);
+  const record = {
+    ...existing,
+    ...pharmacy,
+    id,
+    ownerEmail: String(pharmacy?.ownerEmail || existing?.ownerEmail || "")
+      .trim()
+      .toLowerCase(),
+    medicines: pharmacy?.medicines || existing?.medicines || {},
+    syncStatus: pharmacy?.syncStatus || existing?.syncStatus || "synced",
+    createdAt: existing?.createdAt || Number(pharmacy?.createdAt || 0) || nowTs(),
+    updatedAt: Number(pharmacy?.updatedAt || 0) || nowTs()
+  };
+  await db.put("pharmacies", record);
+  return record;
+}
+
+export async function getAllPharmaciesLocal() {
+  const db = await dbPromise;
+  const all = await db.getAll("pharmacies");
+  return all.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
+export async function getPharmacyByIdLocal(id) {
+  const db = await dbPromise;
+  return db.get("pharmacies", String(id || "").trim());
+}
+
+export async function getPharmacyByOwnerEmailLocal(email) {
+  const normalized = String(email || "").trim().toLowerCase();
+  if (!normalized) return null;
+  const all = await getAllPharmaciesLocal();
+  return all.find((pharmacy) => String(pharmacy?.ownerEmail || "").trim().toLowerCase() === normalized) || null;
+}
+
+export async function deletePharmacyLocal(id) {
+  const db = await dbPromise;
+  await db.delete("pharmacies", String(id || "").trim());
+  return true;
 }

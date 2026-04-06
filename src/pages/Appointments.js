@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import SpeakableText from "../components/SpeakableText";
-import { getSpeechLang } from "../utils/speech";
+import { getSpeechLang, getSpeechRecognition } from "../utils/speech";
 import { translateChatTextWithMeta } from "../services/translationService";
 import {
   createAppointmentCloud,
@@ -555,9 +555,17 @@ export default function Appointments() {
   }
 
   function startSymptomVoiceTyping() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = getSpeechRecognition();
     if (!SpeechRecognition) {
-      alert(t("symptom_voice_not_supported"));
+      const manual = window.prompt(
+        t("symptom_voice_prompt") || "Type your symptoms and press OK."
+      );
+      if (manual) {
+        setBookForm((prev) => ({
+          ...prev,
+          symptoms: `${prev.symptoms} ${manual}`.trim()
+        }));
+      }
       return;
     }
 

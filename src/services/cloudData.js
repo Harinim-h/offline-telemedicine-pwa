@@ -115,6 +115,30 @@ export async function registerPatientUserCloud(user) {
   return mapUser(data);
 }
 
+export async function updatePatientUserCloud(mobile, updates) {
+  ensureClient();
+  const normalizedMobile = String(mobile || "").trim();
+  if (!normalizedMobile) throw new Error("mobile-required");
+
+  const payload = {
+    name: updates.name,
+    age: Number(updates.age || 0),
+    mobile: normalizedMobile,
+    role: "patient"
+  };
+
+  const { data, error } = await supabase
+    .from("users")
+    .update(payload)
+    .eq("mobile", normalizedMobile)
+    .select()
+    .maybeSingle();
+
+  if (error) throw error;
+  if (data) return mapUser(data);
+  return getPatientUserCloud(normalizedMobile);
+}
+
 export async function addPatientRecordCloud(patient) {
   ensureClient();
   const payloadWithAdditional = {

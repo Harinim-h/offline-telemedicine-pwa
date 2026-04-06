@@ -3,7 +3,7 @@ import { analyzeSymptomsWithAI } from "../services/aiSymptomService";
 import { buildClinicalAIResult } from "../services/clinicalModels";
 import { useTranslation } from "react-i18next";
 import SpeakableText from "./SpeakableText";
-import { getSpeechLang, speakText as speakTextGlobal } from "../utils/speech";
+import { getSpeechLang, getSpeechRecognition, speakText as speakTextGlobal } from "../utils/speech";
 
 const HISTORY_KEY = "offline_symptom_checks_v1";
 
@@ -123,9 +123,14 @@ export default function OfflineSymptomChecker() {
   }
 
   function startSymptomVoiceInput() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = getSpeechRecognition();
     if (!SpeechRecognition) {
-      alert(t("symptom_voice_not_supported"));
+      const manual = window.prompt(
+        t("symptom_voice_prompt") || "Type your symptoms and press OK."
+      );
+      if (manual) {
+        setSymptomText((prev) => `${prev} ${manual}`.trim());
+      }
       return;
     }
 

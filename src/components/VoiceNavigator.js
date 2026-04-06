@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { getSpeechLang, speakText } from "../utils/speech";
+import { getSpeechLang, getSpeechRecognition, speakText } from "../utils/speech";
 
 const UI_COPY = {
   en: {
@@ -391,10 +391,26 @@ export default function VoiceNavigator() {
     recognitionRef.current = null;
   }
 
+  function navigateFromText(rawText) {
+    const nextRoute = findRoute(rawText);
+    if (nextRoute) {
+      speakText(`${copy.openingPrefix} ${getPageName(nextRoute, role)}`, i18n.language);
+      navigate(nextRoute);
+      return true;
+    }
+    speakText(copy.notRecognized, i18n.language);
+    return false;
+  }
+
   function startListening() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = getSpeechRecognition();
     if (!SpeechRecognition) {
-      speakText(copy.unsupported, i18n.language);
+      const manualCommand = window.prompt(
+        `${copy.pagePrefix} - ${copy.notRecognized}\n${copy.pagePrefix} command:`
+      );
+      if (manualCommand) {
+        navigateFromText(manualCommand);
+      }
       return;
     }
 

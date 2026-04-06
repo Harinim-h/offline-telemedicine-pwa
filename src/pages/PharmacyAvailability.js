@@ -7,7 +7,12 @@ import {
   getPharmaciesCloud,
   updatePharmacyMedicinesCloud
 } from "../services/cloudData";
-import { deleteChatMessage, getAllChatMessages } from "../services/localData";
+import {
+  deleteChatMessage,
+  getAllChatMessages,
+  getAllPharmaciesLocal,
+  savePharmacyLocal
+} from "../services/localData";
 import { hasSupabase } from "../supabaseClient";
 import SpeakableText from "../components/SpeakableText";
 
@@ -49,6 +54,25 @@ function parsePrescriptionMessage(rawText) {
   };
 }
 
+function mergePharmacyLists(localList, cloudList) {
+  const map = new Map();
+  (cloudList || []).forEach((pharmacy) => {
+    if (!pharmacy?.id) return;
+    map.set(String(pharmacy.id), { ...pharmacy, syncStatus: "synced" });
+  });
+  (localList || []).forEach((pharmacy) => {
+    if (!pharmacy?.id) return;
+    const key = String(pharmacy.id);
+    const existing = map.get(key);
+    if (String(pharmacy?.syncStatus || "") !== "synced") {
+      map.set(key, { ...existing, ...pharmacy });
+      return;
+    }
+    map.set(key, { ...pharmacy, ...existing });
+  });
+  return Array.from(map.values());
+}
+
 export default function PharmacyAvailability() {
   const { t } = useTranslation();
   const role = sessionStorage.getItem("role") || "patient";
@@ -77,20 +101,40 @@ export default function PharmacyAvailability() {
   });
 
   const loadPharmacies = useCallback(async () => {
-    if (!hasSupabase || !navigator.onLine) {
-      setPharmacies([]);
-      setOwnerPharmacy(null);
-      setLoading(false);
-      return;
-    }
-
     try {
-      const data = await getPharmaciesCloud();
-      setPharmacies(data);
-      if (role === "pharmacy") {
-        const own = data.find(
-          (p) => p.ownerEmail === String(user?.email || "").toLowerCase()
+      const localData = await getAllPharmaciesLocal();
+      let finalList = localData;
+
+      if (hasSupabase && navigator.onLine) {
+        const pendingLocal = localData.filter(
+          (pharmacy) => String(pharmacy?.syncStatus || "") === "pending_update"
         );
+        for (const pharmacy of pendingLocal) {
+          try {
+            const updated = await updatePharmacyMedicinesCloud(
+              pharmacy.id,
+              pharmacy.medicines || {}
+            );
+            await savePharmacyLocal({ ...updated, syncStatus: "synced" });
+          } catch (error) {
+            console.warn("Pharmacy stock sync failed", error);
+          }
+        }
+
+        const cloudData = await getPharmaciesCloud();
+        for (const pharmacy of cloudData || []) {
+          await savePharmacyLocal({ ...pharmacy, syncStatus: "synced" });
+        }
+        const refreshedLocal = await getAllPharmaciesLocal();
+        finalList = mergePharmacyLists(refreshedLocal, cloudData);
+      }
+
+      setPharmacies(finalList);
+      if (role === "pharmacy") {
+        const own =
+          finalList.find(
+            (p) => p.ownerEmail === String(user?.email || "").toLowerCase()
+          ) || null;
         setOwnerPharmacy(own || null);
       }
     } finally {
@@ -172,8 +216,21 @@ export default function PharmacyAvailability() {
     }
 
     const next = { ...(ownerPharmacy.medicines || {}), [key]: units };
-    const updated = await updatePharmacyMedicinesCloud(ownerPharmacy.id, next);
-    setOwnerPharmacy(updated);
+    const localUpdated = {
+      ...ownerPharmacy,
+      medicines: next,
+      syncStatus: hasSupabase && navigator.onLine ? "synced" : "pending_update"
+    };
+
+    if (hasSupabase && navigator.onLine) {
+      const updated = await updatePharmacyMedicinesCloud(ownerPharmacy.id, next);
+      await savePharmacyLocal({ ...updated, syncStatus: "synced" });
+      setOwnerPharmacy({ ...updated, syncStatus: "synced" });
+    } else {
+      await savePharmacyLocal(localUpdated);
+      setOwnerPharmacy(localUpdated);
+    }
+
     setMedicineName("");
     setMedicineUnits("");
     await loadPharmacies();
@@ -191,13 +248,14 @@ export default function PharmacyAvailability() {
       return;
     }
 
-    await createPharmacyCloud({
+    const created = await createPharmacyCloud({
       ...newPharmacy,
       medicines: {
         Paracetamol: 0,
         Ibuprofen: 0
       }
     });
+    await savePharmacyLocal({ ...created, syncStatus: "synced" });
 
     setNewPharmacy({
       name: "",
@@ -297,6 +355,14 @@ export default function PharmacyAvailability() {
           <p style={helperText2}>
             {t("pharmacy_logged_in_as")}: {user?.email || "-"} {ownerPharmacy ? `| ${localizePharmacyName(ownerPharmacy.name)}` : ""}
           </p>
+          {!navigator.onLine && ownerPharmacy && (
+            <p style={syncNotice}>
+              {t(
+                "pharmacy_stock_offline_notice",
+                "Offline mode: stock changes are saved locally and will sync when internet returns."
+              )}
+            </p>
+          )}
           <div style={adminGrid}>
             <input
               style={searchBox}
@@ -341,6 +407,11 @@ export default function PharmacyAvailability() {
                       </td>
                       <td style={stockCell}>
                         {qty} {t("units")}
+                        {String(ownerPharmacy?.syncStatus || "") === "pending_update" ? (
+                          <span style={pendingTag}>
+                            {t("doctor_patients_pending_sync", "Pending sync")}
+                          </span>
+                        ) : null}
                       </td>
                       <td style={stockCell}>
                         <button
@@ -509,6 +580,16 @@ const helperText2 = {
   marginBottom: 10
 };
 
+const syncNotice = {
+  color: "#8a6116",
+  background: "#fff3cd",
+  border: "1px solid #ffe08a",
+  borderRadius: 8,
+  padding: "8px 10px",
+  marginBottom: 10,
+  fontSize: 13
+};
+
 const card = {
   background: "#ffffff",
   padding: 16,
@@ -577,6 +658,17 @@ const stockCell = {
   borderBottom: "1px solid #edf3f6",
   color: "#203a43",
   fontSize: 14
+};
+
+const pendingTag = {
+  display: "inline-flex",
+  marginLeft: 8,
+  borderRadius: 999,
+  padding: "2px 8px",
+  background: "#fff3cd",
+  color: "#8a6116",
+  fontSize: 11,
+  fontWeight: 700
 };
 
 const medicineLinkBtn = {

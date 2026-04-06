@@ -9,6 +9,22 @@ export function getSpeechLang(lang) {
   return LANGUAGE_MAP[String(lang || "").toLowerCase()] || "en-US";
 }
 
+export function getSpeechRecognition() {
+  if (typeof window === "undefined") return null;
+  return (
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition ||
+    window.mozSpeechRecognition ||
+    window.msSpeechRecognition ||
+    window.oSpeechRecognition ||
+    null
+  );
+}
+
+export function isSpeechRecognitionSupported() {
+  return Boolean(getSpeechRecognition());
+}
+
 function pickVoice(langCode) {
   const synth = window.speechSynthesis;
   const voices = synth.getVoices() || [];

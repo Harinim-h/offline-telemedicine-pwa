@@ -1,11 +1,50 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  addPatientRecordCloud,
   deletePatientRecordCloud,
   getAllPatientRecordsCloud,
   updatePatientRecordCloud
 } from "../services/cloudData";
+import {
+  deletePatientRecordLocal,
+  getAllPatientRecords,
+  replacePatientRecords,
+  replacePatientRecordLocal,
+  updatePatientRecordLocal
+} from "../services/localData";
 import { hasSupabase } from "../supabaseClient";
+
+function dedupePatients(items) {
+  const map = new Map();
+  for (const patient of items || []) {
+    const cloudKey =
+      patient?.cloudId !== undefined && patient?.cloudId !== null && String(patient.cloudId) !== ""
+        ? `cloud:${String(patient.cloudId)}`
+        : "";
+    const idKey =
+      patient?.id !== undefined && patient?.id !== null && String(patient.id) !== ""
+        ? `id:${String(patient.id)}`
+        : "";
+    const fallbackKey = `fingerprint:${String(patient?.name || "").trim().toLowerCase()}|${String(
+      patient?.age || ""
+    ).trim()}|${String(patient?.condition || "").trim().toLowerCase()}|${String(
+      patient?.additionalData || ""
+    ).trim().toLowerCase()}`;
+    const key = cloudKey || idKey || fallbackKey;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, patient);
+      continue;
+    }
+    const existingUpdated = Number(existing?.updatedAt || existing?.createdAt || 0);
+    const nextUpdated = Number(patient?.updatedAt || patient?.createdAt || 0);
+    if (nextUpdated >= existingUpdated) {
+      map.set(key, patient);
+    }
+  }
+  return [...map.values()].sort((a, b) => Number(b?.createdAt || 0) - Number(a?.createdAt || 0));
+}
 
 export default function DoctorPatients() {
   const { t } = useTranslation();
@@ -20,20 +59,109 @@ export default function DoctorPatients() {
   });
   const [busyId, setBusyId] = useState(null);
   const [msg, setMsg] = useState("");
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
-    const fetchPatients = async () => {
-      if (!hasSupabase || !navigator.onLine) {
-        setPatients([]);
-        setMsg(t("doctor_patients_internet_required"));
-        return;
-      }
-      const data = await getAllPatientRecordsCloud();
-      setPatients(data);
-      setMsg("");
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
     };
-    fetchPatients();
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const syncPendingPatientsToCloud = async () => {
+      if (!hasSupabase || !isOnline) return;
+
+      const localPatients = await getAllPatientRecords();
+      const pendingCreates = localPatients.filter(
+        (patient) => String(patient?.syncStatus || "") === "pending_create"
+      );
+
+      for (const patient of pendingCreates) {
+        try {
+          const cloudCreated = await addPatientRecordCloud({
+            name: patient.name,
+            age: patient.age,
+            condition: patient.condition,
+            additionalData: patient.additionalData
+          });
+          await replacePatientRecordLocal(patient.id, {
+            ...cloudCreated,
+            cloudId: cloudCreated.id,
+            syncStatus: "synced"
+          });
+        } catch (error) {
+          console.warn("Pending patient sync failed", error);
+        }
+      }
+    };
+
+    const fetchPatients = async () => {
+      try {
+        if (!hasSupabase || !isOnline) {
+          const localPatients = dedupePatients(await getAllPatientRecords());
+          if (!active) return;
+          setPatients(localPatients);
+          setMsg(
+            localPatients.length
+              ? t(
+                  "doctor_patients_offline_cached",
+                  "Offline mode: showing last synced patient records."
+                )
+              : t(
+                  "doctor_patients_offline_empty",
+                  "Offline mode: no cached patient records available yet."
+                )
+          );
+          return;
+        }
+
+        await syncPendingPatientsToCloud();
+        const data = await getAllPatientRecordsCloud();
+        const localPatients = await getAllPatientRecords();
+        const pendingLocal = localPatients.filter(
+          (patient) => String(patient?.syncStatus || "") !== "synced"
+        );
+        const mergedPatients = dedupePatients(
+          [
+            ...(data || []).map((patient) => ({
+              ...patient,
+              cloudId: patient.id,
+              syncStatus: "synced"
+            })),
+            ...pendingLocal
+          ]
+        );
+        await replacePatientRecords(mergedPatients);
+        if (!active) return;
+        setPatients(mergedPatients);
+        setMsg("");
+      } catch (error) {
+        const localPatients = dedupePatients(await getAllPatientRecords());
+        if (!active) return;
+        setPatients(localPatients);
+        setMsg(
+          localPatients.length
+            ? t(
+                "doctor_patients_cloud_fallback",
+                "Live records could not be loaded. Showing cached patient records."
+              )
+            : `${t("doctor_patients_update_failed_prefix", "Unable to update patient:")} ${String(error?.message || "")}`
+        );
+      }
+    };
+
+    fetchPatients();
+    return () => {
+      active = false;
+    };
+  }, [isOnline, t]);
 
   const filteredPatients = useMemo(() => {
     const key = String(filterText || "").trim().toLowerCase();
@@ -73,10 +201,28 @@ export default function DoctorPatients() {
         setMsg(t("doctor_patients_name_required"));
         return;
       }
+      if (!hasSupabase || !isOnline) {
+        setMsg(
+          t(
+            "doctor_patients_edit_online_only",
+            "Reconnect to the internet to sync patient record changes."
+          )
+        );
+        return;
+      }
       setBusyId(patientId);
       const updated = await updatePatientRecordCloud(patientId, editForm);
+      await updatePatientRecordLocal(patientId, {
+        ...updated,
+        cloudId: updated.id,
+        syncStatus: "synced"
+      });
       setPatients((prev) =>
-        prev.map((p) => (p.id === patientId ? updated : p))
+        prev.map((p) =>
+          p.id === patientId
+            ? { ...updated, cloudId: updated.id, syncStatus: "synced" }
+            : p
+        )
       );
       setMsg(t("doctor_patients_updated"));
       cancelEdit();
@@ -93,8 +239,18 @@ export default function DoctorPatients() {
     );
     if (!confirmed) return;
     try {
+      if (!hasSupabase || !isOnline) {
+        setMsg(
+          t(
+            "doctor_patients_delete_online_only",
+            "Reconnect to the internet to delete patient records."
+          )
+        );
+        return;
+      }
       setBusyId(patientId);
       await deletePatientRecordCloud(patientId);
+      await deletePatientRecordLocal(patientId);
       setPatients((prev) => prev.filter((p) => p.id !== patientId));
       setMsg(t("doctor_patients_deleted"));
     } catch (error) {
@@ -109,6 +265,14 @@ export default function DoctorPatients() {
       <div style={container}>
         <h2 style={title}>{t("doctor_patients_title")}</h2>
         <p style={subTitle}>{t("doctor_patients_subtitle")}</p>
+        <p style={statusStyle}>
+          {isOnline
+            ? t("profile_online_text", "Online: latest records available.")
+            : t(
+                "doctor_patients_offline_cached",
+                "Offline mode: showing last synced patient records."
+              )}
+        </p>
         <div style={filterRow}>
           <input
             style={filterInput}
@@ -146,6 +310,13 @@ export default function DoctorPatients() {
                             setEditForm((f) => ({ ...f, name: e.target.value }))
                           }
                         />
+                      ) : String(p?.syncStatus || "") === "pending_create" ? (
+                        <div style={pendingWrap}>
+                          <span>{p.name}</span>
+                          <span style={pendingChip}>
+                            {t("doctor_patients_pending_sync", "Pending sync")}
+                          </span>
+                        </div>
                       ) : (
                         p.name
                       )}
@@ -263,8 +434,15 @@ const title = {
 
 const subTitle = {
   marginTop: 0,
-  marginBottom: 18,
+  marginBottom: 8,
   color: "#365662"
+};
+
+const statusStyle = {
+  marginTop: 0,
+  marginBottom: 18,
+  color: "#2f5661",
+  fontSize: 13
 };
 
 const filterRow = {
@@ -330,6 +508,24 @@ const actionRow = {
   display: "flex",
   gap: 6,
   flexWrap: "wrap"
+};
+
+const pendingWrap = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6
+};
+
+const pendingChip = {
+  display: "inline-flex",
+  alignItems: "center",
+  width: "fit-content",
+  borderRadius: 999,
+  padding: "2px 8px",
+  background: "#fff3cd",
+  color: "#8a6116",
+  fontSize: 12,
+  fontWeight: 700
 };
 
 const editBtn = {

@@ -12,6 +12,7 @@ import {
   getPatientUserByMobile,
   saveOfflineCredential,
   getOfflineCredential,
+  savePharmacyLocal,
   savePatientUserLocal,
   getDoctorByEmail
 } from "../services/localData";
@@ -246,6 +247,11 @@ export default function Login() {
           setLoading(false);
           return;
         }
+
+        await savePharmacyLocal({
+          ...pharmacy,
+          syncStatus: "synced"
+        });
 
         completeLogin(
           "pharmacy",

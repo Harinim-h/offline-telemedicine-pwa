@@ -2,6 +2,10 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { addPatientRecordCloud } from "../services/cloudData";
+import {
+  addPatientRecord,
+  upsertPatientRecord
+} from "../services/localData";
 import { hasSupabase } from "../supabaseClient";
 
 export default function AddPatient() {
@@ -21,15 +25,35 @@ export default function AddPatient() {
         setMsg(t("add_patient_required_fields"));
         return;
       }
-      if (!hasSupabase || !navigator.onLine) {
-        setMsg(t("appointments_cloud_required_online"));
-        return;
-      }
-      await addPatientRecordCloud({
+      const payload = {
         name,
         age,
         condition,
         additionalData
+      };
+
+      if (!hasSupabase || !navigator.onLine) {
+        await addPatientRecord({
+          ...payload,
+          id: `local-patient-${Date.now()}`,
+          syncStatus: "pending_create",
+          cloudId: null
+        });
+        setMsg(
+          t(
+            "doctor_patients_saved_offline",
+            "Patient record saved offline. It will sync when internet is available."
+          )
+        );
+        setTimeout(() => navigate("/doctor/patients"), 1000);
+        return;
+      }
+
+      const createdPatient = await addPatientRecordCloud(payload);
+      await upsertPatientRecord({
+        ...createdPatient,
+        cloudId: createdPatient.id,
+        syncStatus: "synced"
       });
 
       setMsg(t("patient_added_success"));

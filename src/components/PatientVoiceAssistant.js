@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { getSpeechLang, speakText } from "../utils/speech";
+import { getSpeechLang, getSpeechRecognition, speakText } from "../utils/speech";
 
 const UI_BY_LANG = {
   en: {
@@ -155,9 +155,20 @@ export default function PatientVoiceAssistant() {
   }
 
   function startListening() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = getSpeechRecognition();
     if (!SpeechRecognition) {
-      speakText(localized.unsupported, i18n.language);
+      const manual = window.prompt(
+        localized.fallbackHint || "Type a command to navigate."
+      );
+      if (manual) {
+        const nextRoute = routeFromSpeech(manual);
+        if (nextRoute) {
+          speakText(`${localized.openingPrefix} ${nextRoute.replace("/", "").replace("-", " ")}`, i18n.language);
+          navigate(nextRoute);
+        } else {
+          speakText(localized.notRecognized, i18n.language);
+        }
+      }
       return;
     }
 
