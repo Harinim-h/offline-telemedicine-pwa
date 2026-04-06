@@ -578,14 +578,18 @@ export default function Appointments() {
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     setIsSymptomListening(true);
+    let hasProcessedResult = false;
 
     recognition.onresult = (event) => {
+      if (hasProcessedResult) return; // Prevent multiple processing
       const transcript = event?.results?.[0]?.[0]?.transcript || "";
       if (transcript) {
+        hasProcessedResult = true;
         setBookForm((prev) => ({
           ...prev,
           symptoms: `${prev.symptoms} ${transcript}`.trim()
         }));
+        recognition.stop(); // Stop immediately after first result
       }
     };
 

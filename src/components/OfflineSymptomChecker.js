@@ -140,11 +140,15 @@ export default function OfflineSymptomChecker() {
     recognition.maxAlternatives = 1;
     recognitionRef.current = recognition;
     setIsListening(true);
+    let hasProcessedResult = false;
 
     recognition.onresult = (event) => {
+      if (hasProcessedResult) return; // Prevent multiple processing
       const transcript = event?.results?.[0]?.[0]?.transcript || "";
       if (transcript) {
+        hasProcessedResult = true;
         setSymptomText((prev) => `${prev} ${transcript}`.trim());
+        recognition.stop(); // Stop immediately after first result
       }
     };
 
