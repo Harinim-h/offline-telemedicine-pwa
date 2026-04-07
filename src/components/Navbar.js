@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -62,6 +62,14 @@ export default function Navbar() {
 /* ---------- MENU LINKS ---------- */
 
 function MenuLinks({ role, t, onClick }) {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    sessionStorage.clear();
+    navigate("/login");
+    if (onClick) onClick();
+  };
+
   return (
     <>
       {role === "patient" && (
@@ -71,6 +79,7 @@ function MenuLinks({ role, t, onClick }) {
           <NavItem to="/symptoms" label={t("nav.symptoms")} onClick={onClick} />
           <NavItem to="/doctor-availability" label={t("nav.doctors")} onClick={onClick} />
           <NavItem to="/profile" label={t("nav.profile")} onClick={onClick} />
+          <LogoutButton onClick={handleLogout} label="Logout" />
         </>
       )}
 
@@ -82,6 +91,7 @@ function MenuLinks({ role, t, onClick }) {
           <NavItem to="/doctor/patients" label={t("doctor_patients_title")} onClick={onClick} />
           <NavItem to="/doctor-analytics" label={t("nav.analytics")} onClick={onClick} />
           <NavItem to="/pharmacy" label={t("nav.pharmacy")} onClick={onClick} />
+          <LogoutButton onClick={handleLogout} label="Logout" />
         </>
       )}
 
@@ -93,12 +103,14 @@ function MenuLinks({ role, t, onClick }) {
           <NavItem to="/doctor/patients" label={t("nav.users")} onClick={onClick} />
           <NavItem to="/pharmacy" label={t("nav.pharmacy")} onClick={onClick} />
           <NavItem to="/admin-home" label={t("nav.settings")} onClick={onClick} />
+          <LogoutButton onClick={handleLogout} label="Logout" />
         </>
       )}
 
       {role === "pharmacy" && (
         <>
           <NavItem to="/pharmacy" label={t("nav.pharmacy")} onClick={onClick} />
+          <LogoutButton onClick={handleLogout} label="Logout" />
         </>
       )}
     </>
@@ -125,6 +137,28 @@ function NavItem({ to, label, onClick }) {
     >
       {label}
     </Link>
+  );
+}
+
+/* ---------- LOGOUT BUTTON ---------- */
+
+function LogoutButton({ onClick, label }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        ...styles.link,
+        background: "rgba(255,255,255,0.15)",
+        border: "none",
+        cursor: "pointer",
+        fontWeight: "600",
+        transition: "background 0.3s ease"
+      }}
+      onMouseOver={(e) => e.target.style.background = "rgba(255,255,255,0.35)"}
+      onMouseOut={(e) => e.target.style.background = "rgba(255,255,255,0.15)"}
+    >
+      {label}
+    </button>
   );
 }
 
