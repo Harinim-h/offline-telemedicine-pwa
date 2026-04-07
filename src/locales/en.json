@@ -34,7 +34,8 @@
     "dashboard": "Dashboard",
     "users": "Users",
     "settings": "Settings",
-    "analytics": "Analytics"
+    "analytics": "Analytics",
+    "logout": "Logout"
   },
   "pharmacy_title": " Nearby Pharmacy Medicine Availability",
   "pharmacy_search_placeholder": "Search medicine name (example: Paracetamol)",

@@ -34,7 +34,8 @@
     "dashboard": "डैशबोर्ड",
     "users": "उपयोगकर्ता",
     "settings": "सेटिंग्स",
-    "analytics": "विश्लेषण"
+    "analytics": "विश्लेषण",
+    "logout": "लॉग आउट"
   },
   "pharmacy_title": " पास की फार्मेसी में दवा की उपलब्धता",
   "pharmacy_search_placeholder": "दवा का नाम खोजें (उदा: पैरासिटामोल)",

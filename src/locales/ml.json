@@ -34,7 +34,8 @@
     "dashboard": "ഡാഷ്ബോർഡ്",
     "users": "ഉപയോക്താക്കൾ",
     "settings": "ക്രമീകരണങ്ങൾ",
-    "analytics": "വിശകലനം"
+    "analytics": "വിശകലനം",
+    "logout": "ലോഗ് ഔട്ട്"
   },
   "pharmacy_title": " സമീപത്തെ ഫാർമസികളിലെ മരുന്ന് ലഭ്യത",
   "pharmacy_search_placeholder": "മരുന്നിന്റെ പേര് തിരയുക (ഉദാ: പരാസിറ്റമോൾ)",

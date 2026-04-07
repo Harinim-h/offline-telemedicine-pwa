@@ -79,7 +79,7 @@ function MenuLinks({ role, t, onClick }) {
           <NavItem to="/symptoms" label={t("nav.symptoms")} onClick={onClick} />
           <NavItem to="/doctor-availability" label={t("nav.doctors")} onClick={onClick} />
           <NavItem to="/profile" label={t("nav.profile")} onClick={onClick} />
-          <LogoutButton onClick={handleLogout} label="Logout" />
+          <LogoutButton onClick={handleLogout} label={t("nav.logout")} />
         </>
       )}
 
@@ -91,7 +91,7 @@ function MenuLinks({ role, t, onClick }) {
           <NavItem to="/doctor/patients" label={t("doctor_patients_title")} onClick={onClick} />
           <NavItem to="/doctor-analytics" label={t("nav.analytics")} onClick={onClick} />
           <NavItem to="/pharmacy" label={t("nav.pharmacy")} onClick={onClick} />
-          <LogoutButton onClick={handleLogout} label="Logout" />
+          <LogoutButton onClick={handleLogout} label={t("nav.logout")} />
         </>
       )}
 
@@ -103,14 +103,14 @@ function MenuLinks({ role, t, onClick }) {
           <NavItem to="/doctor/patients" label={t("nav.users")} onClick={onClick} />
           <NavItem to="/pharmacy" label={t("nav.pharmacy")} onClick={onClick} />
           <NavItem to="/admin-home" label={t("nav.settings")} onClick={onClick} />
-          <LogoutButton onClick={handleLogout} label="Logout" />
+          <LogoutButton onClick={handleLogout} label={t("nav.logout")} />
         </>
       )}
 
       {role === "pharmacy" && (
         <>
           <NavItem to="/pharmacy" label={t("nav.pharmacy")} onClick={onClick} />
-          <LogoutButton onClick={handleLogout} label="Logout" />
+          <LogoutButton onClick={handleLogout} label={t("nav.logout")} />
         </>
       )}
     </>
